@@ -19,8 +19,12 @@ working libraries/tools and focused tests required by the Mauve.Governance
 repository's CI workflow. Those checks passed locally; branch-protected execution has
 not been verified. This does not yet form a complete consumer policy gate.
 The `core` and `core-requirements` bundles record an explicit profile/version and install a read-only
-consumer gate for managed files and present documents. It requires publishing
-the pinned tool before hosted consumer CI can restore it. Additional policy
+consumer gate for managed files and present documents. In local-only mode,
+consumers run the pinned Tool from a locally packed feed; hosted consumer
+validation is disabled until `GOVERNANCE_HOSTED_ENABLED` is explicitly set
+to `true` and the pinned Tool is available from an approved feed.
+The framework's hosted gate builds the Tool from source instead.
+Additional policy
 profile modules, full analyzers, hosted update
 rollout and protected
 environment checks are **PLANNED**. `governance validate` checks currently
@@ -84,7 +88,9 @@ tests, status, diagnostic/metrics and architecture updates. Numeric
 and link to affected features; an ADR does not own a requirement.
 Both installed profiles MUST check fresh source declarations against active
 requirements and an editable `docs/validation-gaps.md` ledger in their
-required workflow. Each active requirement MUST have a ledger row and
+enabled validation gate. Local-only consumers MUST run `governance validate`
+before accepting changes; an explicitly disabled hosted job is not a
+passing or required CI gate. Each active requirement MUST have a ledger row and
 either a declared C# source test or a validated repository-local alternative
 procedure or approved, unexpired waiver. A `missing` method alone does not
 satisfy this gate. For release evidence, `docs/validation-gaps.md` SHOULD

@@ -56,8 +56,8 @@ public sealed class ReleaseUpdaterTests
         Assert.True(await fixture.Updater.ApplyAsync(fixture.Root, fixture.Output));
         Assert.Equal(4, fixture.DownloadedAssets.Count);
         Assert.Contains(fixture.DownloadedAssets, uri => uri.EndsWith("/4", StringComparison.Ordinal));
-        Assert.Equal("version=0.12.0\nchanged=true\n", File.ReadAllText(fixture.Output));
-        Assert.Contains(fixture.Calls, call => call.StartsWith("dotnet tool install Mauve.Governance.Tool --version 0.12.0 ", StringComparison.Ordinal));
+        Assert.Equal($"version={RepositorySetup.CurrentBundleVersion}\nchanged=true\n", File.ReadAllText(fixture.Output));
+        Assert.Contains(fixture.Calls, call => call.StartsWith($"dotnet tool install Mauve.Governance.Tool --version {RepositorySetup.CurrentBundleVersion} ", StringComparison.Ordinal));
         Assert.Contains(fixture.Calls, call => call.EndsWith(" update --root " + fixture.Root + " --apply", StringComparison.Ordinal));
         Assert.Contains(fixture.Calls, call => call.EndsWith(" validate --root " + fixture.Root, StringComparison.Ordinal));
         Assert.Contains(fixture.Calls, call => call.EndsWith(" add -A -- .mauve-governance/update.sh", StringComparison.Ordinal));

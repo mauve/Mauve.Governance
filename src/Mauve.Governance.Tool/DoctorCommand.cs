@@ -34,8 +34,9 @@ internal static class DoctorCommand
                     Console.WriteLine("Feature lifecycle: docs/Requirements and Planned README files are required.");
                 }
                 Console.WriteLine("Test metadata: analyzer available, not a universal consumer gate.");
-                Console.WriteLine("Source-only traceability: required consumer declaration gate, not runner discovery or observed outcomes.");
-                Console.WriteLine("TRX evidence: parser and VSTest trait logger verified locally for all four adapters; hosted evidence is not verified.");
+                Console.WriteLine("Source-only traceability: enforced by validate, not runner discovery or observed outcomes.");
+                Console.WriteLine("Local-only adoption: install from a local package feed; consumer hosted validation and release updates require explicit opt-in and published packages.");
+                Console.WriteLine("TRX evidence: parser and VSTest trait logger available for all four adapters; protected consumer provenance is not verified.");
                 Console.WriteLine("Other policy modules, release publishing and protected CI evidence: not enforced.");
                 return 0;
             });

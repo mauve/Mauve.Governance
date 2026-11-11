@@ -50,6 +50,10 @@ The analyzer adds compile-time diagnostics, not runtime counters.
 `StructuredLoggingAnalyzerTests` exercises accepted and rejected calls;
 the Governance build compiles and runs the analyzer tests. Consumer-wide
 CI and catalog validation remain unverified.
+`tests/verify-local-consumer.sh` also compiles an external negative fixture
+using the packaged analyzer and actual .NET logging APIs, requiring
+`MGLOG001` and `MGLOG002` errors. This verifies package enforcement, not a
+consumer diagnostic catalog or a product-wide required build gate.
 
 ## Diagrams
 

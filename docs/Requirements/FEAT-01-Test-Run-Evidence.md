@@ -73,6 +73,10 @@ validation and merge transitions. `tests/verify-trx-metadata.sh` imports
 11 real runner results, and `tests/verify-trx-outcomes.sh` verifies local
 failure, skip and rerun evidence for all four frameworks. Protected hosted
 provenance remains unverified.
+`tests/verify-local-consumer.sh` additionally restores the packaged Tool,
+adapter and logger in an isolated external MSTest consumer and imports a
+real passing TRX for each profile. This is local package integration evidence,
+not product-consumer acceptance or protected provenance.
 
 ## Diagrams
 

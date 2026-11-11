@@ -6,10 +6,15 @@
 assets, a pinned local tool manifest, copied Markdown files that link to
 the canonical policy and warn against direct edits, read-only validation and scheduled
 update-PR workflows, reconcile owned files locally, migrate the known
-0.2.0-0.9.0 manifests, and validate
-the basic active/planned document structure. Hosted consumer validation
-requires publishing the pinned tool. The update workflow requires a published
-trusted release and configured GitHub App; it has not run in hosted CI.
+0.2.0-0.12.0 manifests, and validate
+the basic active/planned document structure. Local consumers install the
+Tool from an isolated locally packed feed; no NuGet publication is required.
+Hosted consumer validation is explicitly disabled until
+`GOVERNANCE_HOSTED_ENABLED=true` and the pinned Tool is available on an
+approved feed. The framework's policy workflow builds from source.
+The update workflow additionally requires
+`GOVERNANCE_RELEASE_UPDATES_ENABLED=true`, a published trusted release
+and configured GitHub App; it has not run in hosted CI.
 Explicit adoption and complete profile-driven policy validation remain planned.
 
 ## Capability
@@ -67,7 +72,7 @@ not runtime telemetry.
 
 ## Verification
 
-`RepositorySetupTests` checks managed ownership, 0.11.0-to-0.12.0 and earlier
+`RepositorySetupTests` checks managed ownership, 0.12.0-to-0.13.0 and earlier
 migration, and the `core-requirements` profile's required consumer-owned
 lifecycle directory. `Mauve.Governance.Requirements` tests exercise real
 Markdown blocks, bounded reading and NativeAOT publication. Packaged tools
@@ -75,6 +80,9 @@ validate this repository and the example consumer from a local feed;
 Tool-owned release-updater fixtures verify digest rejection, owned-path
 staging and retired-script migration. The local tool manifest pins the
 version used by both enrolled repositories.
+`tests/verify-local-consumer.sh` installs and restores that Tool from an
+isolated local feed outside this repository's build-property inheritance,
+checks both profiles and verifies no-op updates preserve editable documents.
 The self-hosted Governance workflow runs this suite and the `validate`
 command. The bundled consumer workflows have not been observed in hosted CI;
 release publication, update-PR creation and branch protection remain unverified.

@@ -16,10 +16,14 @@ methods, not proof that a protected or hosted check passed.
 | FEAT-01-003 | portable automated | `tests/verify-trx-metadata.sh` | Governance maintainers | Four pinned runners | Link the release run report. |
 | FEAT-02-001 | portable automated | `RepositorySetupTests`, `tests/verify-release-updater.sh` | Governance maintainers | .NET test runner | Hosted release/PR evidence unavailable. |
 | FEAT-02-002 | portable automated | `Mauve.Governance.Requirements.Tests` | Governance maintainers | .NET test runner | Link the release run report. |
-| FEAT-03-001 | portable automated | `TestMetadataAnalyzerTests` | Governance maintainers | .NET test runner | Consumer-wide gate not implemented. |
-| FEAT-03-002 | portable automated | `Mauve.Governance.Traceability.Tests` | Governance maintainers | .NET test runner | Consumer-wide gate not implemented. |
+| FEAT-03-001 | portable automated | `TestMetadataAnalyzerTests` | Governance maintainers | .NET test runner | Packaged analyzer requires a consumer build; source-only validation is not run evidence. |
+| FEAT-03-002 | portable automated | `Mauve.Governance.Traceability.Tests` | Governance maintainers | .NET test runner | Declaration gate implemented; local-only consumers run it locally. Protected run proof remains separate. |
 | FEAT-03-003 | portable automated | `tests/verify-trx-metadata.sh` | Governance maintainers | Four pinned runners | Hosted runner evidence unavailable. |
 | FEAT-04-001 | portable automated | `StructuredLoggingAnalyzerTests` | Governance maintainers | .NET test runner | Consumer build/catalog gate not implemented. |
+| FEAT-01-003 | portable automated | `tests/verify-local-consumer.sh` | Governance maintainers | .NET 10 SDK, isolated local package feed | Synthetic packaged MSTest consumer; not protected evidence or a product acceptance run. |
+| FEAT-02-001 | portable automated | `tests/verify-local-consumer.sh` | Governance maintainers | .NET 10 SDK, isolated local package feed | Both profiles, local Tool restore, update checks and editable-file preservation; no public publication. |
+| FEAT-03-001 | portable automated | `tests/verify-local-consumer.sh` | Governance maintainers | .NET 10 SDK, isolated local package feed | Packaged analyzer build rejects missing metadata; consumer must enable its own build gate. |
+| FEAT-04-001 | portable automated | `tests/verify-local-consumer.sh` | Governance maintainers | .NET 10 SDK, isolated local package feed | Packaged logging analyzer build is separate from diagnostic catalog verification. |
 | FEAT-Payments-01 | portable automated | `tests/verify-metadata-filters.sh` | Governance maintainers | Framework fixture runners | Link the release run report. |
 | FEAT-Payments-02 | portable automated | `tests/verify-metadata-filters.sh` | Governance maintainers | Framework fixture runners | Link the release run report. |
 | FEAT-Payments-03 | portable automated | `tests/verify-metadata-filters.sh` | Governance maintainers | Framework fixture runners | Link the release run report. |

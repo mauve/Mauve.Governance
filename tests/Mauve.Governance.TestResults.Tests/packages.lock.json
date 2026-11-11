@@ -119,9 +119,9 @@
       "mauve.governance.tool": {
         "type": "Project",
         "dependencies": {
-          "Mauve.Governance.Requirements": "[0.11.0, )",
-          "Mauve.Governance.TestResults": "[0.11.0, )",
-          "Mauve.Governance.Traceability": "[0.11.0, )",
+          "Mauve.Governance.Requirements": "[0.13.0, )",
+          "Mauve.Governance.TestResults": "[0.13.0, )",
+          "Mauve.Governance.Traceability": "[0.13.0, )",
           "System.CommandLine": "[2.0.13, )"
         }
       },

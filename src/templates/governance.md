@@ -259,15 +259,22 @@ build is actually a required gate before claiming logging compliance.
 
 ## MGOV-POL-009 - Managed validation and update workflows
 
-The read-only `.github/workflows/governance-policy.yml` restores the
-version-pinned local Tool and validates managed assets and present
-feature documents. The Tool package must be available from an approved
-NuGet feed before enabling CI. This gate is not yet a complete policy
-or test-evidence gate.
+The read-only `.github/workflows/governance-policy.yml` validates managed
+assets and present feature documents. The framework repository builds
+its Tool from source. Consumer hosted validation is disabled by default
+for local-only adoption; consumers MUST run the version-pinned Tool from
+a local package feed and execute `governance validate` before accepting
+changes. A disabled hosted job is not passing execution evidence.
+Set `GOVERNANCE_HOSTED_ENABLED` to `true` only after the pinned Tool is
+available from an approved feed and require the corresponding branch
+check. This gate is not yet a complete policy or test-evidence gate.
 
 After enrollment, the scheduled update workflow checks the trusted
 Mauve.Governance release, verifies package digests, reconciles owned
-assets and proposes a reviewable PR. Provision a repository-installed
+assets and proposes a reviewable PR. This workflow is disabled until
+`GOVERNANCE_RELEASE_UPDATES_ENABLED` is set to `true`; keep it disabled
+in local-only mode and review `governance update --check` and `--apply`
+changes locally instead. Before enabling it, provision a repository-installed
 GitHub App with Contents and Pull requests write permissions, its ID
 as Actions variable `GOVERNANCE_APP_ID` and its private key as Actions
 secret `GOVERNANCE_APP_PRIVATE_KEY`. The App credentials are requested
