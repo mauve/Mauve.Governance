@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <ProjectReference Include="../../src/Mauve.Governance.Testing.XunitV2/Mauve.Governance.Testing.XunitV2.csproj" />
+    <ProjectReference Include="../../src/Mauve.Governance.Testing.TrxLogger/Mauve.Governance.Testing.TrxLogger.csproj" />
+    <ProjectReference Include="../../src/Mauve.Governance.Testing.Analyzers/Mauve.Governance.Testing.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

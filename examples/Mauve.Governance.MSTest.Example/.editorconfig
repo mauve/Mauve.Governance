@@ -1,0 +1,14 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.cs]
+dotnet_diagnostic.MGTEST001.severity = error
+dotnet_diagnostic.MGTEST002.severity = error
+dotnet_diagnostic.MGTEST003.severity = error
+dotnet_diagnostic.MGTEST004.severity = error
+dotnet_diagnostic.MGLOG001.severity = error
+dotnet_diagnostic.MGLOG002.severity = error

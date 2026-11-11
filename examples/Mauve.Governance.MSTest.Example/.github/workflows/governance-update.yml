@@ -1,0 +1,92 @@
+name: Propose Governance update
+
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-update
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: '10.0.401'
+      - id: update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          dotnet tool restore
+          dotnet tool run governance -- update-release --root .
+      - if: steps.update.outputs.changed == 'true'
+        id: app
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.GOVERNANCE_APP_ID }}
+          private-key: ${{ secrets.GOVERNANCE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - if: steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          VERSION: ${{ steps.update.outputs.version }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          branch='governance/managed-update'
+          gh auth setup-git
+          git config user.name 'Mauve Governance[bot]'
+          git config user.email 'governance[bot]@users.noreply.github.com'
+          existing=$(gh pr list --head "$branch" --base "$BASE" --state open --json number --jq '.[0].number // empty')
+          previous=$(git show HEAD:.mauve-governance/manifest.json | jq -er '.BundleVersion')
+          profile=$(jq -er '.Profile' .mauve-governance/manifest.json)
+          changes=$(git diff --cached --name-status)
+          if [[ -z "$changes" ]]; then
+            echo 'MG-GOV-0002: Update step reported changes but staged no managed assets.' >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code origin "refs/heads/$branch" > /dev/null; then
+            if [[ -z "$existing" ]]; then
+              echo 'MG-GOV-0002: Update branch exists without a managed open PR.' >&2
+              exit 1
+            fi
+            git fetch origin "refs/heads/$branch"
+            while IFS= read -r -d '' path; do
+              if [[ "$path" != '.mauve-governance/manifest.json' ]] &&
+                 ! jq -e --arg path "$path" '.Files | any(.Path == $path)' .mauve-governance/manifest.json > /dev/null &&
+                 ! git show HEAD:.mauve-governance/manifest.json |
+                   jq -e --arg path "$path" '.Files | any(.Path == $path)' > /dev/null; then
+                echo "MG-GOV-0002: Update branch contains an unmanaged change: $path" >&2
+                exit 1
+              fi
+            done < <(git diff --name-only -z HEAD...FETCH_HEAD)
+            lease=$(git rev-parse FETCH_HEAD)
+          else
+            lease=''
+          fi
+          git switch -c "$branch"
+          git commit -m "Update Mauve.Governance to $VERSION" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+          git push --force-with-lease="refs/heads/$branch:$lease" origin "HEAD:refs/heads/$branch"
+          printf -v body "%s\n\nPrevious bundle: \`%s\`\nNew bundle: \`%s\`\nSelected profile: \`%s\`\n\n%s\n\`\`\`\n%s\n\`\`\`\n\n%s\n\n%s\n" \
+            'Reviewable Mauve.Governance managed-asset update.' "$previous" "$VERSION" "$profile" \
+            'Managed-file diff (name/status):' "$changes" \
+            "Rule/profile changes: review the policy diff and [release notes](https://github.com/mauve/Mauve.Governance/releases/tag/v$VERSION). No unmanaged files were staged." \
+            'Migration/validation: the Tool verified manifest ownership and present feature documents before this PR. Any collision or failed validation blocks the PR. Manual obligations: review consumer-specific rules, package references, required checks and separately collected test-run evidence. Full policy and protected-environment gates remain planned.'
+          if [[ -n "$existing" ]]; then
+            gh pr edit "$existing" --title "Update Mauve.Governance to $VERSION" --body "$body"
+          else
+            gh pr create --head "$branch" --base "$BASE" --title "Update Mauve.Governance to $VERSION" --body "$body"
+          fi

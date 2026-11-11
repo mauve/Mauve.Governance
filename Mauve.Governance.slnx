@@ -1,0 +1,34 @@
+<Solution>
+  <Folder Name="/examples/">
+    <Project Path="examples/Mauve.Governance.MSTest.Example/Mauve.Governance.MSTest.Example.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Mauve.Governance.Testing/Mauve.Governance.Testing.csproj" />
+    <Project Path="src/Mauve.Governance.Testing.Analyzers/Mauve.Governance.Testing.Analyzers.csproj" />
+    <Project Path="src/Mauve.Governance.Testing.MSTest/Mauve.Governance.Testing.MSTest.csproj" />
+    <Project Path="src/Mauve.Governance.Testing.XunitV2/Mauve.Governance.Testing.XunitV2.csproj" />
+    <Project Path="src/Mauve.Governance.Testing.XunitV3/Mauve.Governance.Testing.XunitV3.csproj" />
+    <Project Path="src/Mauve.Governance.Testing.NUnit/Mauve.Governance.Testing.NUnit.csproj" />
+    <Project Path="src/Mauve.Governance.TestResults/Mauve.Governance.TestResults.csproj" />
+    <Project Path="src/Mauve.Governance.Testing.TrxLogger/Mauve.Governance.Testing.TrxLogger.csproj" />
+    <Project Path="src/Mauve.Governance.Traceability/Mauve.Governance.Traceability.csproj" />
+    <Project Path="src/Mauve.Governance.Logging.Analyzers/Mauve.Governance.Logging.Analyzers.csproj" />
+    <Project Path="src/Mauve.Governance.Requirements/Mauve.Governance.Requirements.csproj" />
+    <Project Path="src/Mauve.Governance.Tool/Mauve.Governance.Tool.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Mauve.Governance.LoggerOutcomes.Tests/Mauve.Governance.LoggerOutcomes.Tests.csproj" />
+    <Project Path="tests/Mauve.Governance.Testing.Analyzers.Tests/Mauve.Governance.Testing.Analyzers.Tests.csproj" />
+    <Project Path="tests/Mauve.Governance.Testing.MSTest.Tests/Mauve.Governance.Testing.MSTest.Tests.csproj" />
+    <Project Path="tests/Mauve.Governance.Testing.XunitV2.Tests/Mauve.Governance.Testing.XunitV2.Tests.csproj" />
+    <Project Path="tests/Mauve.Governance.Testing.XunitV3.Tests/Mauve.Governance.Testing.XunitV3.Tests.csproj" />
+    <Project Path="tests/Mauve.Governance.Testing.NUnit.Tests/Mauve.Governance.Testing.NUnit.Tests.csproj" />
+    <Project Path="tests/Mauve.Governance.Testing.TrxLogger.Tests/Mauve.Governance.Testing.TrxLogger.Tests.csproj" />
+    <Project Path="tests/Mauve.Governance.TestResults.Tests/Mauve.Governance.TestResults.Tests.csproj" />
+    <Project Path="tests/Mauve.Governance.Traceability.Tests/Mauve.Governance.Traceability.Tests.csproj" />
+    <Project Path="tests/Mauve.Governance.Requirements.Tests/Mauve.Governance.Requirements.Tests.csproj" />
+    <Project Path="tests/Mauve.Governance.Logging.Analyzers.Tests/Mauve.Governance.Logging.Analyzers.Tests.csproj" />
+    <Project Path="tests/Mauve.Governance.Requirements.AotSmoke/Mauve.Governance.Requirements.AotSmoke.csproj" />
+    <Project Path="tests/Mauve.Governance.TrxVerification/Mauve.Governance.TrxVerification.csproj" />
+  </Folder>
+</Solution>

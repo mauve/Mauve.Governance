@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "mauve.governance.tool": {
+      "version": "{{CURRENT_BUNDLE_VERSION}}",
+      "commands": [
+        "governance"
+      ],
+      "rollForward": false
+    }
+  }
+}

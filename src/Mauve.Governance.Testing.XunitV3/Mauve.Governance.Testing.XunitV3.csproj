@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.extensibility.core" />
+    <ProjectReference Include="../Mauve.Governance.Testing/Mauve.Governance.Testing.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,88 @@
+name: Publish Governance release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-release
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+      - id: version
+        run: echo "version=$(dotnet msbuild src/Mauve.Governance.Tool -getProperty:Version -nologo)" >> "$GITHUB_OUTPUT"
+      - run: dotnet restore Mauve.Governance.slnx --locked-mode
+      - run: dotnet build Mauve.Governance.slnx -c Release --no-restore -warnaserror
+      - run: dotnet test tests/Mauve.Governance.TestResults.Tests -c Release --no-build
+      - run: dotnet test tests/Mauve.Governance.Requirements.Tests -c Release --no-build
+      - run: bash tests/verify-requirements-aot.sh
+      - run: dotnet test tests/Mauve.Governance.Traceability.Tests -c Release --no-build
+      - run: dotnet test tests/Mauve.Governance.Testing.TrxLogger.Tests -c Release --no-build
+      - run: dotnet test tests/Mauve.Governance.Testing.Analyzers.Tests -c Release --no-build
+      - run: dotnet test tests/Mauve.Governance.Logging.Analyzers.Tests -c Release --no-build
+      - run: bash tests/verify-metadata-filters.sh
+      - run: bash tests/verify-trx-metadata.sh
+      - run: bash tests/verify-trx-outcomes.sh
+      - run: bash tests/verify-release-updater.sh
+      - run: bash tests/verify-update-pr.sh
+      - run: dotnet run --project src/Mauve.Governance.Tool -c Release --no-build -- validate --root .
+      - run: |
+          dotnet run --project src/Mauve.Governance.Tool -c Release --no-build -- generate --root . --output artifacts/traceability.json
+          jq -r '"Source-only declarations: \(.tests | length) tests, \(.features | length) features. Not run evidence."' artifacts/traceability.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: source-traceability
+          path: artifacts/traceability.json
+          if-no-files-found: error
+      - run: dotnet pack Mauve.Governance.slnx -c Release --no-build --no-restore --output artifacts/publish
+      - run: test "$(find artifacts/publish -maxdepth 1 -name '*.nupkg' | wc -l)" -eq 12
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: governance-packages
+          path: artifacts/publish/*.nupkg
+          if-no-files-found: error
+  publish:
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: governance-packages
+          path: packages
+      - env:
+          NUGET_API_KEY: ${{ secrets.GOVERNANCE_NUGET_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.package.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$NUGET_API_KEY" || ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'MG-GOV-0002: Release version or package feed credentials are missing.' >&2
+            exit 1
+          fi
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "MG-GOV-0002: Release v$VERSION already exists." >&2
+            exit 1
+          fi
+          for package in packages/*.nupkg; do
+            dotnet nuget push "$package" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY"
+          done
+          gh release create "v$VERSION" packages/*.nupkg --target "$GITHUB_SHA" \
+            --title "Mauve.Governance v$VERSION" --generate-notes
