@@ -36,8 +36,20 @@ jobs:
       - run: bash tests/verify-metadata-filters.sh
       - run: bash tests/verify-trx-metadata.sh
       - run: bash tests/verify-trx-outcomes.sh
+      - run: |
+          echo 'The observed-run-fixtures artifact contains synthetic real-run fixtures. The outcome fixtures intentionally fail and produce Mixed evidence; they are not framework test failures or a release pass verdict. No protected provenance is claimed.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: observed-run-fixtures
+          path: |
+            artifacts/trx-metadata-check/*/governance-*.trx
+            artifacts/trx-metadata-check/evidence.json
+            artifacts/trx-outcome-check/*/run-*/governance-*.trx
+            artifacts/trx-outcome-check/evidence.json
+          if-no-files-found: error
       - run: bash tests/verify-release-updater.sh
       - run: bash tests/verify-update-pr.sh
+      - run: bash tests/verify-local-consumer.sh
       - run: dotnet run --project src/Mauve.Governance.Tool -c Release --no-build -- validate --root .
       - run: |
           dotnet run --project src/Mauve.Governance.Tool -c Release --no-build -- generate --root . --output artifacts/traceability.json

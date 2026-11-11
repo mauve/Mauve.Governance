@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   managed-assets:
+    if: github.repository == 'mauve/Mauve.Governance' || vars.GOVERNANCE_HOSTED_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -17,11 +18,21 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
-          dotnet-version: '10.0.401'
-      - run: dotnet tool restore
-      - run: dotnet tool run governance -- validate --root .
+          dotnet-version: '10.0.404'
+      - if: github.repository == 'mauve/Mauve.Governance'
+        run: |
+          dotnet restore src/Mauve.Governance.Tool --locked-mode
+          dotnet build src/Mauve.Governance.Tool -c Release --no-restore -warnaserror
+      - if: github.repository != 'mauve/Mauve.Governance'
+        run: dotnet tool restore
       - run: |
-          dotnet tool run governance -- generate --root . --output artifacts/traceability.json
+          if [[ "$GITHUB_REPOSITORY" == 'mauve/Mauve.Governance' ]]; then
+            governance() { dotnet run --project src/Mauve.Governance.Tool -c Release --no-build -- "$@"; }
+          else
+            governance() { dotnet tool run governance -- "$@"; }
+          fi
+          governance validate --root .
+          governance generate --root . --output artifacts/traceability.json
           jq -r '"Source-only declarations: \(.tests | length) tests, \(.features | length) features. Not run evidence."' artifacts/traceability.json >> "$GITHUB_STEP_SUMMARY"
       - if: github.event_name == 'pull_request'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -31,7 +42,12 @@ jobs:
           path: .traceability-base
       - if: github.event_name == 'pull_request'
         run: |
-          dotnet tool run governance -- generate --root .traceability-base --output artifacts/traceability-base.json
+          if [[ "$GITHUB_REPOSITORY" == 'mauve/Mauve.Governance' ]]; then
+            governance() { dotnet run --project src/Mauve.Governance.Tool -c Release --no-build -- "$@"; }
+          else
+            governance() { dotnet tool run governance -- "$@"; }
+          fi
+          governance generate --root .traceability-base --output artifacts/traceability-base.json
           jq -cS '.tests[] | {id,framework,path,feature,requirements,cases}' artifacts/traceability-base.json | sort > artifacts/traceability-base.tests
           jq -cS '.tests[] | {id,framework,path,feature,requirements,cases}' artifacts/traceability.json | sort > artifacts/traceability-head.tests
           diff -u artifacts/traceability-base.tests artifacts/traceability-head.tests > artifacts/traceability-pr-delta.patch && status=0 || status=$?

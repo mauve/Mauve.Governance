@@ -32,3 +32,9 @@ for framework in MSTest XunitV2 NUnit XunitV3; do
 done
 
 dotnet run --project tests/Mauve.Governance.TrxVerification -- "${files[@]}"
+trx_args=()
+for file in "${files[@]}"; do
+    trx_args+=(--trx "$file")
+done
+dotnet run --project src/Mauve.Governance.Tool -c Release --no-build -- \
+    test-results "${trx_args[@]}" --output "$results/evidence.json"

@@ -168,7 +168,7 @@
       "mauve.governance.testing.xunitv3": {
         "type": "Project",
         "dependencies": {
-          "Mauve.Governance.Testing": "[0.11.0, )",
+          "Mauve.Governance.Testing": "[0.13.0, )",
           "xunit.v3.extensibility.core": "[4.0.2, )"
         }
       },

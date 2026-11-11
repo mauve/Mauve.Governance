@@ -22,7 +22,7 @@ internal static class RepositorySetup
         "docs/governance/GOVERNANCE_POLICY.md",
         "docs/governance/README.md"
     ];
-    internal const string CurrentBundleVersion = "0.12.0";
+    internal const string CurrentBundleVersion = "0.13.0";
     private const string CoreProfile = "core";
     private const string RequirementsProfile = "core-requirements";
     private static readonly ManifestJsonContext ReadableManifestContext =
@@ -170,6 +170,25 @@ internal static class RepositorySetup
             ["style-guide.md"] = "15838FAE1FF360435C952299EFB8DC5AA742B763EF9F04F650932F6F6A4EA0A2"
         };
 
+    private static readonly IReadOnlyDictionary<string, string> PreviousDeclarationHashes =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [".config/dotnet-tools.json"] = "B8DE2E76AE148EB55AA7E89114FB70AACB81BF6E1B45775ECB7588B298C31691",
+            [".editorconfig"] = "F24D58B61F197FC8168F50EB3B8FEDADF897188FF940097AD4CC1E7C6F42BD0E",
+            [".github/agents/governance-evidence.agent.md"] = "D82AEE7CED84D47E6CAEB172B52862C4FA9156AFCD604D6E2CAE076EAE7E320F",
+            [".github/agents/governance-maintainer.agent.md"] = "695A2387DEFF42CC573D9503DA23143E14AC08F4AD50D3EA7E42BC4115A820B5",
+            [".github/skills/governance-analyzer-remediation/SKILL.md"] = "954A0E4FC1AFBBA30849E9F48E65A8318EAD60C114122C8BBA16AEBE98D43636",
+            [".github/skills/governance-bootstrap/SKILL.md"] = "E7DD9E73DFD617C6BD436FC1940EB12D5A9BD4A0726CFE498AA0050F21D5D05B",
+            [".github/skills/governance-test-evidence/SKILL.md"] = "FA2FAB8C577AF27493E58B1C54C6398C482AB3A8F741257C5374BBD53697B79A",
+            [".github/workflows/governance-policy.yml"] = "4F72AACEAEF3FD1536458B518CC65E2A665A3D5963589EFC9CF2CA55EB6A2258",
+            [".github/workflows/governance-update.yml"] = "36EC409CF100831F1EB754F37B8748CAF3EBC1C059ECF2F19CAA14CA652E7C19",
+            ["AGENTS.md"] = "0248BE1998E8C93FCBC319EBB5B64BFEBB6020770F03E04CF26AAADC385B2AEE",
+            ["docs/Policies/README.md"] = "165F92963F74FBD79610F7AB587F63166D75683F5A8AC35385E79A624E10178B",
+            ["docs/governance.md"] = "8DC2D520CD88E6244399E12B068835E276149F0351FED8C7B5EE50BC60A6BB39",
+            ["governance.md"] = "54E802496C0E30C36DB0CED3BBDC1BDE008F72CC8560AD189641EF1C14131A4C",
+            ["style-guide.md"] = "15838FAE1FF360435C952299EFB8DC5AA742B763EF9F04F650932F6F6A4EA0A2"
+        };
+
     private static readonly string[] TemplatePaths =
     [
         ".config/dotnet-tools.json",
@@ -247,9 +266,10 @@ internal static class RepositorySetup
                 "0.9.0" => PreviousRequirementsProfileHashes,
                 "0.10.0" => PreviousTemplateBundleHashes,
                 "0.11.0" => PreviousTraceabilityHashes,
+                "0.12.0" => PreviousDeclarationHashes,
                 _ => null
             };
-            if (existing.BundleVersion is not ("0.9.0" or "0.10.0" or "0.11.0") && existing.Profile != CoreProfile ||
+            if (existing.BundleVersion is not ("0.9.0" or "0.10.0" or "0.11.0" or "0.12.0") && existing.Profile != CoreProfile ||
                 expected is null ||
                 existing.Files.Length != expected.Count ||
                 existing.Files.Any(file =>

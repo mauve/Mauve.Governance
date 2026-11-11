@@ -30,45 +30,149 @@ is managed; write individual `POL-*.md` extensions beside it.
 | `src/templates/docs/Requirements/Planned/README.md` | `docs/Requirements/Planned/README.md` | Editable starter, expanded here for this repository. |
 | `src/templates/docs/validation-gaps.md` | `docs/validation-gaps.md` | Editable starter with this repository's requirement rows. |
 
-## Previously ungoverned repository
+## Local-first bootstrap and consumer verification
 
-1. Choose a published, trusted Governance release and install its
-   `Mauve.Governance.Tool` package to a temporary tool path. For example:
-   `dotnet tool install --tool-path <temporary-path> Mauve.Governance.Tool
-   --version 0.12.0`. A package feed and .NET 10 runtime must be available.
-2. Preview `<temporary-path>/governance init --root <repository> --profile
-   core --bundle-version 0.12.0 --check`, then repeat without `--check`.
-   Alternatively, select `--profile core-requirements` if the consumer
-   will maintain both `docs/Requirements/README.md` and
-   `docs/Requirements/Planned/README.md` as its own files. Create both
-   and the `Planned/` directory before running `init`; enrollment
-   refuses an incomplete lifecycle without writing managed files.
-   A `core` enrollment creates missing lifecycle guides and a validation
-   ledger automatically; `core-requirements` still requires its lifecycle
-   layout to be prepared before enrollment. The preview exits with status 1
-   when it finds changes to apply; this is
-   expected for a new repository.
-   Unmanaged collisions (including an existing `.editorconfig`, `AGENTS.md`,
-   `.config/dotnet-tools.json`, identically named skill or agent, or policy
-   document) stop enrollment.
-   Choose a different owner/path or explicitly move the existing file;
-   `init` does not silently take ownership.
-3. Review and commit `.mauve-governance/manifest.json` and all managed
-   assets. Restore the pinned local tool with `dotnet tool restore`, then
-   use `dotnet tool run governance -- validate --root .`. Propose the
-   enrollment as a pull request. Require the `managed-assets` CI check
-   once the tool package is available from the approved feed.
-4. To receive later automatic update PRs, install a GitHub App on the
-   consumer with Contents and Pull requests write permissions. Record
-   its ID as Actions variable `GOVERNANCE_APP_ID` and private key as
-   Actions secret `GOVERNANCE_APP_PRIVATE_KEY`. The scheduled/manual
-   workflow itself is installed during enrollment and needs no write
-   token until a validated update is ready to propose.
+No public Governance NuGet release or hosted consumer run is currently
+verified. For local verification, pack the Tool and its three Governance
+dependencies from this checkout:
+
+```sh
+mkdir -p artifacts/local-feed
+dotnet pack src/Mauve.Governance.TestResults -c Release -o artifacts/local-feed
+dotnet pack src/Mauve.Governance.Traceability -c Release -o artifacts/local-feed
+dotnet pack src/Mauve.Governance.Requirements -c Release -o artifacts/local-feed
+dotnet pack src/Mauve.Governance.Testing -c Release -o artifacts/local-feed
+dotnet pack src/Mauve.Governance.Testing.MSTest -c Release -o artifacts/local-feed
+dotnet pack src/Mauve.Governance.Testing.Analyzers -c Release -o artifacts/local-feed
+dotnet pack src/Mauve.Governance.Logging.Analyzers -c Release -o artifacts/local-feed
+dotnet pack src/Mauve.Governance.Testing.TrxLogger -c Release -o artifacts/local-feed
+dotnet pack src/Mauve.Governance.Tool -c Release -o artifacts/local-feed
+```
+
+Configure NuGet so Governance packages can only resolve from that feed and
+third-party dependencies resolve from NuGet.org. NuGet may use cached
+packages without applying source mapping, so also point `NUGET_PACKAGES` (or
+`globalPackagesFolder`) at a fresh consumer-local directory:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="governance-local" value="/absolute/path/to/artifacts/local-feed" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key="governance-local">
+      <package pattern="Mauve.Governance.*" />
+    </packageSource>
+    <packageSource key="nuget.org">
+      <package pattern="*" />
+    </packageSource>
+  </packageSourceMapping>
+</configuration>
+```
+
+Use the exact version from `Directory.Build.props` (currently `0.13.0`):
+
+```sh
+export NUGET_PACKAGES="$PWD/artifacts/local-governance-cache-$$"
+mkdir "$NUGET_PACKAGES"
+dotnet tool install Mauve.Governance.Tool --version 0.13.0 \
+  --tool-path "$HOME/.dotnet/tools/governance-local" \
+  --configfile /path/to/NuGet.Config
+"$HOME/.dotnet/tools/governance-local/governance" init \
+  --root /path/to/your/repository --profile core --bundle-version 0.13.0
+"$HOME/.dotnet/tools/governance-local/governance" validate \
+  --root /path/to/your/repository
+```
+
+After `init` has installed the consumer's pinned tool manifest, verify that
+it restores from the same feed/cache mapping:
+
+```sh
+cd /path/to/your/repository
+dotnet tool restore --configfile /path/to/NuGet.Config
+dotnet tool run governance -- validate --root .
+```
+
+Select `core-requirements` only when the consumer owns
+`docs/Requirements/README.md` and `docs/Requirements/Planned/README.md`;
+create these files and the `Planned/` directory before `init`. Review the
+generated ownership manifest and diff, and keep editable feature documents
+and `docs/validation-gaps.md` outside Governance ownership.
+
+Run the end-to-end synthetic local package consumer from this repository:
+
+```sh
+bash tests/verify-local-consumer.sh
+```
+
+It packs locally, installs the exact Tool from an isolated local feed and
+cache, creates fresh `core` and `core-requirements` MSTest consumers, runs
+the packaged analyzer/adapter/TRX logger, imports real TRX, generates
+source-only traceability, checks update no-ops, checks editable-file
+preservation, and checks negative metadata and logging diagnostics.
+Third-party packages still come from NuGet.org. This synthetic fixture is
+not acceptance evidence from a product consumer or a hosted run.
+
+The current Tool, MSTest metadata adapter and TRX logger target .NET 10;
+first consumers using those packages must target `net10.0` and have the
+.NET 10 SDK/runtime. The analyzers target `netstandard2.0`, but no earlier
+consumer framework is validated by this end-to-end check. For the current
+repository workflow use the pinned .NET 10 SDK `10.0.404`. Add
+`Mauve.Governance.Testing.Analyzers` and the framework adapter to the test
+project; add `Mauve.Governance.Logging.Analyzers` where logging analysis is
+wanted. The `.editorconfig` only configures diagnostics: the consumer must
+require its own project build to enforce them.
+
+The package-reference pattern used by the local MSTest consumer is:
+
+```xml
+<ItemGroup>
+  <PackageReference Include="MSTest" Version="4.5.1" />
+  <PackageReference Include="Mauve.Governance.Testing.MSTest" Version="0.13.0" />
+  <PackageReference Include="Mauve.Governance.Testing.Analyzers" Version="0.13.0" />
+  <PackageReference Include="Mauve.Governance.Logging.Analyzers" Version="0.13.0" />
+  <PackageReference Include="Mauve.Governance.Testing.TrxLogger" Version="0.13.0" />
+</ItemGroup>
+```
+
+After annotating and running a test, execute the runner logger and evidence
+import in the consumer:
+
+```sh
+dotnet test tests/Your.Tests.csproj --logger governance-trx \
+  --results-directory TestResults
+"$HOME/.dotnet/tools/governance-local/governance" test-results \
+  --trx TestResults/governance-<run-id>.trx \
+  --output artifacts/test-evidence.json
+"$HOME/.dotnet/tools/governance-local/governance" generate --root . \
+  --output artifacts/traceability.json
+```
+
+TRX evidence describes observed outcomes. Generated traceability is
+source-only and is not execution evidence. Verify the actual chosen
+consumer's framework, analyzers, restore sources, diagnostics and required
+gates separately before claiming product readiness.
+
+## Published/hosted bootstrap (not yet verified)
+
+Once a trusted package release and approved feed are provisioned, install
+the exact published `Mauve.Governance.Tool` version and use the same
+`init --check`, review and `validate` sequence described above. Hosted
+NuGet-dependent policy checks are disabled unless the Actions variable
+`GOVERNANCE_HOSTED_ENABLED` is exactly `true`. Update PR automation is
+disabled unless `GOVERNANCE_RELEASE_UPDATES_ENABLED` is exactly `true`;
+neither opt-in makes an unpublished package or unverified App operational.
+Do not configure or advertise
+scheduled update PR automation until the release workflow, GitHub App
+permissions and a hosted update run have been verified.
 
 ## Existing Governance installation
 
 Use a trusted newer tool to run `governance update --root <repository>
---check`, then `--apply` in a review branch. The known 0.2.0-0.10.0
+--check`, then `--apply` in a review branch. The known 0.2.0-0.12.0
 ownership manifests migrate to the current bundle; edited *owned* files
 are replaced in the proposed diff, while any file absent from the old
 manifest remains outside Governance ownership. An unknown schema, an
@@ -77,15 +181,12 @@ collision blocks migration. Move or reconcile such files explicitly
 before trying again; do not delete consumer material automatically.
 
 An ungoverned repository has no update workflow or ownership manifest.
-No central release can reach it by itself: use the one-time `init` path
-above. The pinned local Tool's `update-release --root <repository>`
-discovers a newer trusted release, checks its SHA-256 asset digests,
-installs the exact newer Tool from an isolated feed, reconciles
-manifest-owned assets, validates and stages the managed diff. The
-installed workflow alone obtains a short-lived GitHub App token and
-commits on an update branch before opening or refreshing a reviewable
-PR. The Tool's `update --apply` changes local files only; it never opens
-a PR. The former `.mauve-governance/update.sh` is retired: migrations
+No central release can reach it by itself: use the local `init` path above.
+`update --check` and `update --apply` reconcile an installed version and
+change local files only; they never open a PR. Release discovery and
+automated update PRs are deferred pending a verified published feed and
+authorized hosted execution. The former `.mauve-governance/update.sh` is
+retired: migrations
 remove it only when a previous manifest records its ownership.
 
 ## Feature lifecycle and scope

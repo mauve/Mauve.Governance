@@ -5,8 +5,10 @@
 **PARTIAL**. Framework-specific test annotations and their analyzer,
 source-only traceability and a VSTest metadata-bearing TRX logger are
 implemented. Real runner TRX from all four adapters is verified locally.
-Both consumer profiles now require source/ledger declaration validation;
-hosted execution and observed protected evidence remain separate work.
+Both consumer profiles enforce source/ledger declaration validation through
+`validate`. Local-only consumers execute it locally; feed-dependent hosted
+consumer jobs require explicit opt-in. Observed protected evidence remains
+separate work.
 
 ## Capability
 
@@ -40,7 +42,8 @@ execution, and suppression of a failing diagnostic is not a repair.
 The generator MUST read source without loading assemblies, emit a stable
 versioned JSON index and fail on ambiguous source metadata. The index
 MUST distinguish static case descriptors from actual discovered or
-executed cases. Both consumer profiles MUST generate the index in CI
+executed cases. Both consumer profiles MUST generate the index in enabled CI or the
+local-only validation procedure
 without requiring a committed copy. The required declaration gate MUST
 compare active requirement IDs with the editable ledger and source links,
 requiring a validated repository-local alternative or approved waiver
@@ -81,10 +84,13 @@ and feature counts only.
 ## Verification
 
 `TestMetadataAnalyzerTests`, `TraceabilityGeneratorTests`, logger unit tests
-and the real TRX metadata/outcome scripts exercise these rules. Governance
-and release CI generate a source-only index as a run artifact and compare
-source declarations between PR base and head. Both consumer profiles
-require fresh source and active-requirement/ledger validation; hosted
+and the real TRX metadata/outcome scripts exercise these rules.
+`tests/verify-local-consumer.sh` exercises packaged metadata,
+analyzer and logger assemblies, including a real compiler rejection of
+missing metadata in an external project. Governance and package CI generate
+a source-only index as a run artifact; Governance compares source declarations
+between PR base and head. Both consumer profiles
+require fresh source and active-requirement/ledger validation; protected hosted
 execution proof remains separate.
 
 ## Diagrams

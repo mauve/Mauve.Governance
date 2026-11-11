@@ -7,12 +7,12 @@ diagnostic prefixes and performance thresholds are not defaults.
 
 ## Supported profiles: `core` and `core-requirements`
 
-The 0.12.0 tool accepts `--profile core` or
-`--profile core-requirements`, with `--bundle-version 0.12.0`, on `init`.
-It writes the selected `Profile` and `"BundleVersion": "0.12.0"` to the
+The 0.13.0 tool accepts `--profile core` or
+`--profile core-requirements`, with `--bundle-version 0.13.0`, on `init`.
+It writes the selected `Profile` and `"BundleVersion": "0.13.0"` to the
 manifest at `.mauve-governance/manifest.json`, along with owned paths and
 content hashes. `update` preserves the selected profile and migrates known
-0.2.0–0.10.0 manifests (bundles before 0.9.0 were `core`). Unknown profiles,
+0.2.0–0.12.0 manifests (bundles before 0.9.0 were `core`). Unknown profiles,
 manifest schemas, versions and
 owned-file hashes are rejected rather than treated as compatible.
 
@@ -21,7 +21,7 @@ owned-file hashes are rejected rather than treated as compatible.
 | `init` | Explicit enrollment; unmanaged path collisions block installation. |
 | `update` | Known-version migration and managed-path reconciliation; unmanaged files are not adopted or overwritten. |
 | `validate` | Manifest/managed-file integrity, active/planned feature-document structure **when `docs/Requirements/` exists**, and active-requirement/source/ledger declaration checks. |
-| Installed CI workflow | `governance validate --root .` and a fresh source-only index on pushes and pull requests, with an artifact and PR declaration delta; requires the pinned tool package to be available. |
+| Installed CI workflow | Framework builds its Tool from source. Consumer hosted validation requires explicit `GOVERNANCE_HOSTED_ENABLED=true` and the pinned package on an approved feed; local-only consumers run `validate` and `generate` locally instead. Disabled hosted jobs are not passing evidence. |
 
 The managed bundle copies a pinned .NET tool manifest, `.editorconfig`,
 `AGENTS.md`, a style guide, two custom agents, three skills, a consumer
@@ -60,8 +60,8 @@ remain present. The choice cannot be silently changed by `update`.
 `core` does **not** require Central Package Management in consumers, run
 analyzers across their projects, check executable file kinds or workflow
 pins, import TRX automatically, verify protected evidence or enforce a
-complete policy. Both profiles generate the source-only index in required
-CI; an empty index is valid when no active requirements need a declared
+complete policy. Both profiles generate the source-only index in enabled
+CI or via the local-only validation procedure; an empty index is valid when no active requirements need a declared
 method. .NET consumers
 **should** use Central Package Management and lock files. The analyzer
 and TRX tool are separately available; required source declaration checks
@@ -83,7 +83,7 @@ that active-requirement method declarations and source metadata are checked;
 this does not establish observed run outcomes.
 A future release-time gap report may merge that ledger with manual and
 automated run reports, but no such merger or release-blocking run-evidence gap gate
-exists in 0.12.0.
+exists in 0.13.0.
 
 ## Proposed extensions, not selectable profiles
 
@@ -97,5 +97,5 @@ validation, its actual validator or analyzer, negative fixtures and a
 required consumer CI gate before it can be documented as supported.
 
 Do not use `--profile fleet` or invent a JSON profile alongside the
-ownership manifest: the 0.12.0 tool rejects other profile names, and
+ownership manifest: the 0.13.0 tool rejects other profile names, and
 unrecognized configuration is not interpreted or enforced.

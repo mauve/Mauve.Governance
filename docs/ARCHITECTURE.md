@@ -35,8 +35,10 @@ the feature lifecycle or when a `docs/Requirements/` directory exists.
 Managed-file validation, basic feature-document structure, compile-time
 test metadata in the TestResults test project and bounded TRX evidence
 parsing are implemented and checked in this repository's own CI workflow.
-Local equivalents pass; required-check branch protection remains
-unverified. The full policy validator, profile schema,
+Local equivalents pass; main requires the GitHub Actions `governance` and
+`managed-assets` checks through up-to-date PRs, including for administrators.
+Those repository checks do not prove product-consumer or protected evidence.
+The full policy validator, profile schema,
 hosted update-PR verification and protected runner-outcome coverage remain
 planned;
 `governance validate` must not be used as a full Governance policy gate.
@@ -57,12 +59,18 @@ attestation; source integrity and protected lanes need separate provenance.
 
 Bootstrap requires an explicit supported profile and bundle version, installs
 a pinned local tool and read-only managed-assets check, and refuses collisions
-with existing consumer files. The package must be published to an approved
-feed before hosted consumer CI can restore it. Update changes only paths
+with existing consumer files. Local-only consumers install locally packed
+packages from an isolated feed; nothing is published. Hosted consumer
+validation is disabled until explicitly enabled with
+`GOVERNANCE_HOSTED_ENABLED=true` and an approved feed can restore the
+pinned Tool. The framework's hosted policy job builds the Tool from source.
+Update changes only paths
 owned by the manifest, and replaces
 an edited owned file in the proposed change while preserving all unmanaged
 files. A consumer without an installed workflow cannot self-discover new
-releases; the bundled scheduled/manual workflow calls the pinned Tool's
+releases; the bundled scheduled/manual workflow is disabled until
+`GOVERNANCE_RELEASE_UPDATES_ENABLED=true`. Once explicitly enabled against
+a published release, it calls the pinned Tool's
 `update-release` command to verify release digests, install the exact
 released Tool, reconcile owned paths and stage a validated diff in a
 read-only checkout. The workflow requests a least-privilege GitHub App
