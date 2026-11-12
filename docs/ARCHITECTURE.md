@@ -33,7 +33,7 @@ document validation used by the Tool when the selected profile requires
 the feature lifecycle or when a `docs/Requirements/` directory exists.
 
 Managed-file validation, basic feature-document structure, compile-time
-test metadata in the TestResults test project and bounded TRX evidence
+test metadata in the TestResults test project and XML-safe TRX evidence
 parsing are implemented and checked in this repository's own CI workflow.
 Local equivalents pass; main requires the GitHub Actions `governance` and
 `managed-assets` checks through up-to-date PRs, including for administrators.
@@ -54,6 +54,63 @@ recorded `Feature` and
 `Requirement` properties only, preserves per-run observations, and rejects
 results without metadata. Its JSON report is derived evidence, not a signed
 attestation; source integrity and protected lanes need separate provenance.
+
+## TRX fidelity and resource model
+
+The approved logger contract preserves the runner-supplied execution record
+without silent truncation: outcomes, timing, execution and parent/child
+identity, messages, diagnostic output, metadata and local attachments.
+Execution results are flat and explicitly linked so callbacks may arrive
+out of parent order. Governance verdicts must retain child outcomes, avoid
+counting synthetic parent rollups twice, and preserve a genuine parent
+failure. Every runner property is preserved with identity, type and value in
+a typed companion, whether or not it also has a standard TRX mapping;
+standard well-known mappings may be emitted as additional TRX fields.
+Custom properties are not silently flattened into unrelated standard
+attributes. Data without a standard TRX slot also belongs in the companion.
+
+Every runner message is written to TRX `TextMessages` in original order with
+a textual `[Category]` prefix. Standard `StdOut`, `StdErr` and `DebugTrace`
+fields remain available to viewers. A permanent
+`<report>.files/runner-data.xml` attachment preserves typed properties,
+message category/nullability/order and raw fields. XML-invalid code units
+are retained exactly in a raw companion representation such as base64. Raw
+output may therefore be duplicated in the companion and increase bundle
+storage; no separate per-execution raw file is used. Local result and run
+attachments are copied under unique relocatable
+`<report>.files/<scope>/<unique>/<name>` paths;
+result records reference copied payloads and the companion retains their
+metadata. Run-level payloads are also referenced in standard
+`ResultSummary/ResultFiles`. Relative result attachment URIs resolve from
+the test assembly directory; relative run attachments resolve from the
+results directory. Absolute `file:` URIs are accepted; non-file network
+locations are rejected and never fetched implicitly.
+
+One pending TRX document is finalized before the final
+`.trx` is published; the final file is the completion marker, not an atomic
+publication guarantee for the entire directory. Temporary result fragments
+are not merged.
+
+The logger retains immutable definition snapshots and compact execution
+linkage until finalization. The importer retains governance metadata,
+observations and aggregates. Memory therefore scales with these retained
+structures and the current runner result; neither side promises constant
+memory or bounded total work. No generic size/count budget on TRX/report
+bytes, executions, results, runs, definitions, messages, attachments,
+traits or properties, field-length cap or XML nesting-depth cap is part of
+the TRX contract.
+XML well-formedness, DTD/external-entity rejection, metadata integrity,
+identity consistency and explicit failure behavior remain mandatory.
+Importers read only the metadata needed for governance evidence and never
+open attachments or treat diagnostic text as evidence.
+
+Captured test output and copied attachments may contain secrets. Preserve
+runner data faithfully rather than silently redact it; repositories must
+control access, retention and distribution of the complete report bundle.
+See [ADR-001](Architecture/ADR-001-Streaming-TRX-Evidence.md) for the
+decision, observed memory probe and real-runner comparisons. Those
+measurements cover only their described fixtures and are not resource bounds
+or general runner guarantees.
 
 ## Update ownership
 

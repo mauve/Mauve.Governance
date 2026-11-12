@@ -11,7 +11,8 @@ for framework in MSTest XunitV2 NUnit; do
     output="$results/$framework"
     mkdir -p "$output"
     rm -f "$output"/governance-*.trx
-    dotnet test "$project" --logger governance-trx --results-directory "$output" -v:q
+    dotnet test "$project" --logger governance-trx \
+        --logger 'trx;LogFileName=official.trx' --results-directory "$output" -v:q
 done
 
 v3="tests/Mauve.Governance.Testing.XunitV3.Tests"
@@ -19,7 +20,7 @@ dotnet build "$v3" -v:q
 mkdir -p "$results/XunitV3"
 rm -f "$results/XunitV3"/governance-*.trx
 dotnet vstest "$v3/bin/Debug/net10.0/Mauve.Governance.Testing.XunitV3.Tests.dll" \
-    /Logger:governance-trx "/ResultsDirectory:$results/XunitV3"
+    /Logger:governance-trx '/Logger:trx;LogFileName=official.trx' "/ResultsDirectory:$results/XunitV3"
 
 files=()
 for framework in MSTest XunitV2 NUnit XunitV3; do

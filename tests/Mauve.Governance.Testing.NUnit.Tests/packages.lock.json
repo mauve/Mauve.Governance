@@ -105,7 +105,7 @@
       "mauve.governance.testing.nunit": {
         "type": "Project",
         "dependencies": {
-          "Mauve.Governance.Testing": "[0.13.0, )",
+          "Mauve.Governance.Testing": "[0.14.0, )",
           "NUnit": "[4.6.1, )"
         }
       },

@@ -43,8 +43,12 @@ jobs:
           name: observed-run-fixtures
           path: |
             artifacts/trx-metadata-check/*/governance-*.trx
+            artifacts/trx-metadata-check/*/governance-*.files/**
+            artifacts/trx-metadata-check/*/official.trx
             artifacts/trx-metadata-check/evidence.json
             artifacts/trx-outcome-check/*/run-*/governance-*.trx
+            artifacts/trx-outcome-check/*/run-*/governance-*.files/**
+            artifacts/trx-outcome-check/*/run-*/official.trx
             artifacts/trx-outcome-check/evidence.json
           if-no-files-found: error
       - run: bash tests/verify-release-updater.sh

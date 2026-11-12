@@ -108,13 +108,71 @@ release-time evidence merging remain separate.**
 
 Test-run evidence MUST come from metadata present in the supplied TRX,
 never from test names or a static traceability index. Missing/ambiguous
-metadata MUST fail extraction. Test, requirement and feature verdicts MUST
-merge by retaining Passed, Failed and Other observations; Skipped and
-NotExecuted remain counted but neutral. No observations, including
-skipped-only, mean NotObserved. Passed+Failed means Mixed; Passed+Other
-means Indeterminate; Failed+Other means Failed. Distinct run provenance
-MUST be retained, duplicate identical TRX imports MUST be idempotent,
-and imports MUST be bounded and reject external XML entities.
+metadata MUST fail extraction. The logger MUST preserve runner-supplied
+execution data, including outcomes, timing, run completion state and summary
+statistics, messages, diagnostic output, metadata and attachments, without
+silent truncation or omission. Results
+MUST be representable as flat executions with explicit parent/child identity;
+aggregation MUST retain child outcomes, avoid counting synthetic parent
+rollups twice, and retain genuine parent failures. Every runner property MUST
+be preserved with its identity, type and value in a versioned,
+machine-readable companion attachment, including properties that also have a
+standard TRX mapping. Standard well-known mappings MAY be emitted in TRX
+fields as well; custom properties MUST NOT be silently promoted or flattened
+into unrelated standard attributes. Other data without a standard TRX slot
+MUST also be preserved losslessly in the companion. XML-invalid code units
+MUST be preserved exactly in a raw companion representation such as base64;
+if a value cannot be represented losslessly, the logger MUST fail explicitly
+rather than silently stringify, strip or omit it.
+
+Every runner message MUST appear in the TRX `TextMessages` section, in
+original order, with a textual `[Category]` prefix; standard `StdOut`, `StdErr`
+and `DebugTrace` fields MUST remain available to TRX viewers. The companion
+MUST additionally retain exact message category, nullability and order.
+One permanent `runner-data.xml` attachment per run carries typed runner
+properties, messages and raw fields. Raw fields may duplicate standard TRX
+output; this increases bundle storage. The logger MUST NOT create an
+additional per-execution raw file.
+
+Local result and run attachment payloads MUST be copied into unique,
+relocatable paths under the report's `.files` directory. Result TRX records
+MUST reference their copied attachments, and the companion MUST retain
+attachment metadata. Run-level attachments MUST also be referenced in the
+standard TRX `ResultSummary/ResultFiles`. Relative result attachment URIs
+resolve relative to the test assembly directory; relative run attachments
+resolve relative to the results directory. Absolute `file:` URIs MUST be accepted. Other schemes MUST be rejected
+without fetching network resources.
+
+The logger MUST stream execution results into one pending TRX document,
+write the permanent runner-data companion, and publish
+the final TRX only after successful finalization. It MUST NOT merge temporary
+result fragments. The final TRX is a completion marker; publishing it does
+not claim an atomic transaction over the entire bundle.
+
+Test, requirement and feature verdicts MUST merge by retaining Passed, Failed
+and Other observations; Skipped and NotExecuted remain counted but neutral.
+No observations, including skipped-only, mean NotObserved. Passed+Failed
+means Mixed; Passed+Other means Indeterminate; Failed+Other means Failed.
+Distinct run provenance MUST be retained and duplicate byte-identical TRX
+imports MUST be idempotent. XML parsing MUST reject malformed documents,
+DTDs and external entities. The importer MUST extract governance metadata
+only from explicit test identity/metadata links; diagnostic text, display
+names, source indexes and companion payloads MUST NOT supply or repair
+missing evidence. Attachment paths MUST NOT be opened during evidence import.
+Importers MUST recognize results and definitions only in their
+schema-designated TRX containers; lookalike XML elements nested in output or
+other extension content MUST NOT become executions, definitions or metadata.
+
+The logger and importer MUST NOT impose generic size/count budgets on
+TRX/report bytes, executions, results, runs, definitions, messages,
+attachments, traits or properties. They MUST NOT cap field length or XML
+nesting depth, or claim bounded total work or constant-memory operation. The logger retains
+definition metadata and compact execution linkage; the importer/report
+retains governance observations and aggregates. Memory therefore scales
+with retained definitions/linkage or evidence, as well as the current
+runner-supplied result. Disk, address-space and operating-system limits
+still apply; such limits MUST NOT cause silent data loss or a success-shaped
+partial report.
 The future release-time validation-gap report SHOULD merge the
 consumer's requirement ledger, automated run reports and manual-run
 reports, retaining requirement ID, procedure/version, operator, time,
@@ -123,9 +181,11 @@ Missing tests and unavailable environments MUST remain distinct from
 passing evidence. That merger is **report-only** until a separately
 implemented release gate is selected; it is not supplied by the
 TRX-only `test-results` command.
-**Parser/merge and VSTest trait logger with local pass/fail/skip/rerun
-verification for all four fixture frameworks: IMPLEMENTED locally.
-Manual reports, release-time merger and protected hosted evidence:
+**TRX parsing/merge and metadata-bearing runner output have local
+implementations and fixture coverage. The streaming logger has initial
+focused coverage; importer integration and full real-runner verification of
+the complete fidelity, attachment and no-budget contract remain incomplete.
+Manual reports, release-time merger and protected hosted evidence remain
 PLANNED.**
 
 ### MG-POL-005 - Managed assets and updates
@@ -141,7 +201,7 @@ The ownership manifest MUST use stable, readable two-space-indented JSON.
 Updates MUST replace only owned paths, preserve unmanaged files, fail
 on unmanaged collisions and be proposed as reviewable PRs. A repository
 without an updater workflow requires one-time enrollment; an updated bundle
-MUST NOT silently rewrite its default branch. **Local bootstrap, migration of known 0.2.0-0.9.0 bundles, pinned tool
+MUST NOT silently rewrite its default branch. **Local bootstrap, migration of known 0.2.0-0.13.0 bundles, pinned tool
 manifest, linked non-editable consumer documents and agents/skills, read-only consumer gate
 and owned-file checks: PARTIAL. A
 digest-checking, GitHub-App-authorized consumer updater is bundled; a trusted

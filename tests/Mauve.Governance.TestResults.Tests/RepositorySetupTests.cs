@@ -17,11 +17,13 @@ public sealed class RepositorySetupTests
         Assert.Equal(0, RepositorySetup.Run("update", directory.Path, check: true));
         var manifest = File.ReadAllText(
             System.IO.Path.Combine(directory.Path, ".mauve-governance/manifest.json"));
-        Assert.StartsWith("{\n  \"SchemaVersion\": 2,\n  \"BundleVersion\": \"0.13.0\",", manifest);
+        Assert.StartsWith(
+            $"{{\n  \"SchemaVersion\": 2,\n  \"BundleVersion\": \"{RepositorySetup.CurrentBundleVersion}\",",
+            manifest);
         Assert.Contains("\n      \"Path\":", manifest);
         Assert.Contains("\"Profile\": \"core\"", manifest);
         Assert.EndsWith("}\n", manifest);
-        Assert.Contains("\"version\": \"0.13.0\"", File.ReadAllText(
+        Assert.Contains($"\"version\": \"{RepositorySetup.CurrentBundleVersion}\"", File.ReadAllText(
             System.IO.Path.Combine(directory.Path, ".config/dotnet-tools.json")));
         var workflow = File.ReadAllText(
             System.IO.Path.Combine(directory.Path, ".github/workflows/governance-policy.yml"));
@@ -436,7 +438,7 @@ public sealed class RepositorySetupTests
         Assert.Equal("consumer-owned", File.ReadAllText(unmanaged));
         File.Delete(unmanaged);
         Assert.Equal(0, RepositorySetup.Run("update", directory.Path, check: false));
-        Assert.Contains("\"BundleVersion\": \"0.13.0\"", File.ReadAllText(manifest));
+        Assert.Contains($"\"BundleVersion\": \"{RepositorySetup.CurrentBundleVersion}\"", File.ReadAllText(manifest));
         Assert.Equal(0, RepositorySetup.Run("validate", directory.Path, check: false));
     }
 
@@ -448,7 +450,7 @@ public sealed class RepositorySetupTests
         using var directory = new RepositoryDirectory();
         Assert.Throws<InvalidDataException>(() => RepositorySetup.Run("init", directory.Path, check: false));
         Assert.Throws<InvalidDataException>(() =>
-            RepositorySetup.Run("init", directory.Path, check: false, "fleet", "0.13.0"));
+            RepositorySetup.Run("init", directory.Path, check: false, "fleet", RepositorySetup.CurrentBundleVersion));
         Assert.Throws<InvalidDataException>(() =>
             RepositorySetup.Run("init", directory.Path, check: false, "core", "0.4.0"));
         Assert.False(File.Exists(System.IO.Path.Combine(directory.Path, ".mauve-governance/manifest.json")));
@@ -473,7 +475,7 @@ public sealed class RepositorySetupTests
         File.Delete(policy);
         Assert.Equal(0, RepositorySetup.Run("update", directory.Path, check: false));
         Assert.Contains("do not edit directly", File.ReadAllText(policy));
-        Assert.Contains("\"BundleVersion\": \"0.13.0\"", File.ReadAllText(manifest));
+        Assert.Contains($"\"BundleVersion\": \"{RepositorySetup.CurrentBundleVersion}\"", File.ReadAllText(manifest));
         Assert.Equal(0, RepositorySetup.Run("validate", directory.Path, check: false));
     }
 
@@ -510,7 +512,7 @@ public sealed class RepositorySetupTests
         Assert.Equal(0, RepositorySetup.Run("update", directory.Path, check: false));
         Assert.Contains("do not edit directly", File.ReadAllText(agent));
         Assert.Equal("consumer-owned", File.ReadAllText(consumer));
-        Assert.Contains("\"BundleVersion\": \"0.13.0\"", File.ReadAllText(manifest));
+        Assert.Contains($"\"BundleVersion\": \"{RepositorySetup.CurrentBundleVersion}\"", File.ReadAllText(manifest));
         Assert.Equal(0, RepositorySetup.Run("validate", directory.Path, check: false));
     }
 
@@ -574,7 +576,7 @@ public sealed class RepositorySetupTests
         using var directory = new RepositoryDirectory();
         Assert.Throws<InvalidDataException>(() =>
             RepositorySetup.Run("init", directory.Path, check: false,
-                "core-requirements", "0.13.0"));
+                "core-requirements", RepositorySetup.CurrentBundleVersion));
         Assert.False(File.Exists(System.IO.Path.Combine(directory.Path, ".mauve-governance/manifest.json")));
 
         var requirements = System.IO.Path.Combine(directory.Path, "docs/Requirements");
@@ -583,11 +585,11 @@ public sealed class RepositorySetupTests
         File.WriteAllText(System.IO.Path.Combine(requirements, "README.md"), "Active features");
         Assert.Throws<InvalidDataException>(() =>
             RepositorySetup.Run("init", directory.Path, check: false,
-                "core-requirements", "0.13.0"));
+                "core-requirements", RepositorySetup.CurrentBundleVersion));
         Assert.False(File.Exists(System.IO.Path.Combine(directory.Path, ".config/dotnet-tools.json")));
         File.WriteAllText(System.IO.Path.Combine(planned, "README.md"), "Proposed features");
         Assert.Equal(0, RepositorySetup.Run("init", directory.Path, check: false,
-            "core-requirements", "0.13.0"));
+            "core-requirements", RepositorySetup.CurrentBundleVersion));
         Assert.Equal(0, RepositorySetup.Run("validate", directory.Path, check: false));
         Assert.Contains("selected profile", File.ReadAllText(
             System.IO.Path.Combine(directory.Path, "governance.md")));
@@ -657,6 +659,49 @@ public sealed class RepositorySetupTests
         Assert.Equal(0, RepositorySetup.Run("update", directory.Path, check: false));
         Assert.Equal(profile, RepositorySetup.CurrentProfile(directory.Path));
         Assert.Contains("GOVERNANCE_HOSTED_ENABLED", File.ReadAllText(workflow));
+        Assert.Equal(ledgerText, File.ReadAllText(ledger));
+        Assert.Equal(0, RepositorySetup.Run("update", directory.Path, check: true));
+        Assert.Equal(0, RepositorySetup.Run("validate", directory.Path, check: false));
+    }
+
+    [Theory]
+    [InlineData("core")]
+    [InlineData("core-requirements")]
+    [Trait("Feature", "FEAT-02")]
+    [Trait("Requirement", "FEAT-02-001")]
+    public void Streaming_trx_bundle_migration_preserves_profile_and_editable_files(string profile)
+    {
+        using var directory = new RepositoryDirectory();
+        Init(directory);
+        var fixture = System.IO.Path.GetFullPath(System.IO.Path.Combine(
+            AppContext.BaseDirectory, "../../../../../tests/fixtures/manifest-0.13.0.json"));
+        var manifest = System.IO.Path.Combine(directory.Path, ".mauve-governance/manifest.json");
+        var trustedManifest = File.ReadAllText(fixture).Replace(
+            "\"Profile\": \"core\"", $"\"Profile\": \"{profile}\"", StringComparison.Ordinal);
+        File.WriteAllText(manifest, trustedManifest);
+
+        var workflow = System.IO.Path.Combine(directory.Path, ".github/workflows/governance-policy.yml");
+        File.WriteAllText(workflow, "0.13.0 owned workflow");
+        var ledger = System.IO.Path.Combine(directory.Path, "docs/validation-gaps.md");
+        var ledgerText = File.ReadAllText(ledger);
+
+        var tamperedManifest = trustedManifest.Replace(
+            "547CC8FEA7B671DB78F40DE77567ACEA43E2BDAE60A17A7E14566E42DC82D631",
+            "A47CC8FEA7B671DB78F40DE77567ACEA43E2BDAE60A17A7E14566E42DC82D631",
+            StringComparison.Ordinal);
+        File.WriteAllText(manifest, tamperedManifest);
+        Assert.Throws<InvalidDataException>(() =>
+            RepositorySetup.Run("update", directory.Path, check: false));
+        Assert.Equal("0.13.0 owned workflow", File.ReadAllText(workflow));
+        File.WriteAllText(manifest, trustedManifest);
+
+        Assert.Equal(1, RepositorySetup.Run("update", directory.Path, check: true));
+        Assert.Equal("0.13.0 owned workflow", File.ReadAllText(workflow));
+        Assert.Equal(0, RepositorySetup.Run("update", directory.Path, check: false));
+        Assert.Equal(profile, RepositorySetup.CurrentProfile(directory.Path));
+        Assert.Contains(
+            $"\"BundleVersion\": \"{RepositorySetup.CurrentBundleVersion}\"",
+            File.ReadAllText(manifest));
         Assert.Equal(ledgerText, File.ReadAllText(ledger));
         Assert.Equal(0, RepositorySetup.Run("update", directory.Path, check: true));
         Assert.Equal(0, RepositorySetup.Run("validate", directory.Path, check: false));

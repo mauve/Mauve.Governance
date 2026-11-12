@@ -16,7 +16,7 @@ for framework in MSTest XunitV2 XunitV3 NUnit; do
         rm -f "$output"/governance-*.trx
         if [[ "$framework" == XunitV3 ]]; then
             if dotnet vstest "$v3/bin/Debug/net10.0/Mauve.Governance.Testing.XunitV3.Tests.dll" \
-                /Logger:governance-trx "/ResultsDirectory:$output"; then
+                /Logger:governance-trx '/Logger:trx;LogFileName=official.trx' "/ResultsDirectory:$output"; then
                 echo "The intentional $framework failure fixture unexpectedly passed." >&2
                 exit 1
             fi
@@ -29,6 +29,7 @@ for framework in MSTest XunitV2 XunitV3 NUnit; do
                 arguments=(-p:DefineConstants=GOVERNANCE_OUTCOME_FIXTURE)
             fi
             if dotnet test "$project" "${arguments[@]}" --logger governance-trx \
+                --logger 'trx;LogFileName=official.trx' \
                 --results-directory "$output" -v:q; then
                 echo "The intentional $framework failure fixture unexpectedly passed." >&2
                 exit 1
@@ -42,6 +43,8 @@ for framework in MSTest XunitV2 XunitV3 NUnit; do
         files+=("${emitted[0]}")
     done
 done
+
+dotnet run --project tests/Mauve.Governance.TrxVerification -- --diagnostics "${files[@]}"
 
 trx_args=()
 for file in "${files[@]}"; do

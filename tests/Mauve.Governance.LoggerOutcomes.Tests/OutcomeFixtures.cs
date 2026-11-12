@@ -1,3 +1,4 @@
+using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Mauve.Governance.LoggerOutcomes.Tests;
@@ -12,6 +13,8 @@ public sealed class OutcomeFixtures
     [TestProperty("Requirement", "FEAT-03-003")]
     public void Parameterized_pass_and_fail(bool shouldFail)
     {
+        Console.Write("governance outcome stdout <&> fixture");
+        Console.Error.Write("governance outcome stderr <&> fixture");
         Assert.IsFalse(shouldFail, "Intentional failure to verify observed TRX outcomes.");
     }
 

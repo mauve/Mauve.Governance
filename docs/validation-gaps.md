@@ -11,14 +11,14 @@ methods, not proof that a protected or hosted check passed.
 
 | Requirement | Validation method | Evidence or procedure | Owner | Environment / prerequisites | Gap or waiver details |
 | --- | --- | --- | --- | --- | --- |
-| FEAT-01-001 | portable automated | `Mauve.Governance.TestResults.Tests` | Governance maintainers | .NET test runner | Link the release run report. |
+| FEAT-01-001 | portable automated | `Mauve.Governance.TestResults.Tests` | Governance maintainers | .NET test runner | Importer regressions include deeply nested output/definition lookalikes; passing status, large-report round trips and integrated bundle imports await parent verification. |
 | FEAT-01-002 | portable automated | `Mauve.Governance.TestResults.Tests` | Governance maintainers | .NET test runner | Link the release run report. |
-| FEAT-01-003 | portable automated | `tests/verify-trx-metadata.sh` | Governance maintainers | Four pinned runners | Link the release run report. |
+| FEAT-01-003 | portable automated | `tests/verify-trx-metadata.sh` | Governance maintainers | Four pinned runners | Parent verification compared real dual-logger metadata and eight real outcome runs from `tests/verify-trx-outcomes.sh`, including output, stack traces and attachment bytes against the official logger. Full fidelity corners and protected hosted provenance remain open. |
 | FEAT-02-001 | portable automated | `RepositorySetupTests`, `tests/verify-release-updater.sh` | Governance maintainers | .NET test runner | Hosted release/PR evidence unavailable. |
 | FEAT-02-002 | portable automated | `Mauve.Governance.Requirements.Tests` | Governance maintainers | .NET test runner | Link the release run report. |
 | FEAT-03-001 | portable automated | `TestMetadataAnalyzerTests` | Governance maintainers | .NET test runner | Packaged analyzer requires a consumer build; source-only validation is not run evidence. |
 | FEAT-03-002 | portable automated | `Mauve.Governance.Traceability.Tests` | Governance maintainers | .NET test runner | Declaration gate implemented; local-only consumers run it locally. Protected run proof remains separate. |
-| FEAT-03-003 | portable automated | `tests/verify-trx-metadata.sh` | Governance maintainers | Four pinned runners | Hosted runner evidence unavailable. |
+| FEAT-03-003 | portable automated | `tests/verify-trx-metadata.sh` | Governance maintainers | Four pinned runners | Parent verification compared real dual-logger metadata; custom-property typing and all metadata edge cases require separate evidence. Protected hosted provenance remains unavailable. |
 | FEAT-04-001 | portable automated | `StructuredLoggingAnalyzerTests` | Governance maintainers | .NET test runner | Consumer build/catalog gate not implemented. |
 | FEAT-01-003 | portable automated | `tests/verify-local-consumer.sh` | Governance maintainers | .NET 10 SDK, isolated local package feed | Synthetic packaged MSTest consumer; not protected evidence or a product acceptance run. |
 | FEAT-02-001 | portable automated | `tests/verify-local-consumer.sh` | Governance maintainers | .NET 10 SDK, isolated local package feed | Both profiles, local Tool restore, update checks and editable-file preservation; no public publication. |

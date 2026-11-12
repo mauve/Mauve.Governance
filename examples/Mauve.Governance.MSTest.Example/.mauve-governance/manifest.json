@@ -1,10 +1,10 @@
 {
   "SchemaVersion": 2,
-  "BundleVersion": "0.13.0",
+  "BundleVersion": "0.14.0",
   "Files": [
     {
       "Path": ".config/dotnet-tools.json",
-      "Sha256": "547CC8FEA7B671DB78F40DE77567ACEA43E2BDAE60A17A7E14566E42DC82D631"
+      "Sha256": "E6C400EECAD06D742DFD65E36DF4F57857FFCD3007F2680A89B6B0B9DDF22A99"
     },
     {
       "Path": ".editorconfig",
@@ -48,7 +48,7 @@
     },
     {
       "Path": "docs/governance.md",
-      "Sha256": "6FF3E37B23E21595E69281A18E046B42FFFDCBAFE128E81AB0896C89C0C5663E"
+      "Sha256": "8066ED92C6D9B7B4AFC24F38B332FFBB193F363BBA2E44A33A8232DB6BE5D9C5"
     },
     {
       "Path": "governance.md",

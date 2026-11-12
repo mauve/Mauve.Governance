@@ -1,7 +1,7 @@
 # Package, consumer and release readiness
 
 `Directory.Build.props` versions the .NET Tool, libraries, analyzers and
-framework adapters together. The current bundle is `0.13.0`. This repository
+framework adapters together. The current bundle is `0.14.0`. This repository
 can build and pack packages locally; a local package is not a published or
 trusted release. NuGet publication, hosted consumer checks that need a
 published Tool, and App-authorized update PR automation are deferred. Do not

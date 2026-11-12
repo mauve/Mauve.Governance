@@ -6,7 +6,7 @@
 assets, a pinned local tool manifest, copied Markdown files that link to
 the canonical policy and warn against direct edits, read-only validation and scheduled
 update-PR workflows, reconcile owned files locally, migrate the known
-0.2.0-0.12.0 manifests, and validate
+0.2.0-0.13.0 manifests, and validate
 the basic active/planned document structure. Local consumers install the
 Tool from an isolated locally packed feed; no NuGet publication is required.
 Hosted consumer validation is explicitly disabled until
@@ -72,7 +72,7 @@ not runtime telemetry.
 
 ## Verification
 
-`RepositorySetupTests` checks managed ownership, 0.12.0-to-0.13.0 and earlier
+`RepositorySetupTests` checks managed ownership, 0.13.0-to-0.14.0 and earlier
 migration, and the `core-requirements` profile's required consumer-owned
 lifecycle directory. `Mauve.Governance.Requirements` tests exercise real
 Markdown blocks, bounded reading and NativeAOT publication. Packaged tools

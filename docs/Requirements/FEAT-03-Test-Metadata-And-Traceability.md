@@ -3,12 +3,15 @@
 ## Status
 
 **PARTIAL**. Framework-specific test annotations and their analyzer,
-source-only traceability and a VSTest metadata-bearing TRX logger are
-implemented. Real runner TRX from all four adapters is verified locally.
-Both consumer profiles enforce source/ledger declaration validation through
-`validate`. Local-only consumers execute it locally; feed-dependent hosted
-consumer jobs require explicit opt-in. Observed protected evidence remains
-separate work.
+source-only traceability and a VSTest metadata-bearing TRX logger have local
+implementations and fixture coverage. The approved typed-property streaming
+logger's 18 focused regression tests pass. Parent verification compared
+real dual-logger metadata and eight real outcome runs across the four
+frameworks; importer integration and all-corner-case metadata fidelity
+remain incomplete. Both consumer profiles enforce source/ledger
+declaration validation through `validate`. Local-only consumers execute it
+locally; feed-dependent hosted consumer jobs require explicit opt-in.
+Observed protected evidence remains separate work.
 
 ## Capability
 
@@ -64,22 +67,33 @@ runner or claim that an unobserved scenario passed.
 
 MSTest, xUnit v2/v3 and NUnit test runs MUST produce TRX containing
 runner-provided Feature and Requirement metadata for native annotations
-and convenience attributes where supported. Missing metadata MUST fail
-TRX extraction, rather than being supplied from a source index.
+and convenience attributes where supported. The logger MUST preserve
+definition identity and all runner-provided traits/custom properties with
+identity, type and value in a referenced typed companion, whether or not a
+standard TRX mapping also exists. Standard well-known mappings may be
+additional TRX fields; custom properties are not flattened into unrelated
+attributes. It MUST NOT silently stringify unsupported values or impose
+generic property-count or property-length budgets. Missing metadata MUST fail
+TRX extraction, rather than being supplied from a source index, display name
+or diagnostic output.
 
-**Acceptance:** `verify-trx-metadata.sh` runs real fixtures under all four
-frameworks and strictly imports 11 results from four emitted TRX files;
-xUnit v3 uses its VSTest adapter instead of the standalone in-process runner.
-`verify-trx-outcomes.sh` checks actual MSTest parameterized pass/fail,
-skipped outcomes and distinct reruns without making the normal suite fail.
+**Acceptance:** focused regressions verify metadata/property fidelity,
+identity linkage and out-of-order results. `verify-trx-metadata.sh` runs real
+fixtures under all four frameworks and strictly imports their explicit
+metadata; xUnit v3 uses its VSTest adapter instead of the standalone
+in-process runner. `verify-trx-outcomes.sh` checks actual MSTest parameterized
+pass/fail, skipped outcomes and distinct reruns without making the normal
+suite fail.
 
-**Security:** the logger reads runner `TestCase.Traits` only, does not load
-source to enrich results, and imports fail closed when Feature is absent.
+**Security:** the logger uses runner-supplied metadata only and does not load
+source to enrich results. The importer reads explicit Feature/Requirement
+metadata and fails closed when Feature is absent.
 
 ## Metrics Impact
 
 No runtime instruments are added; the generator reports declared test
-and feature counts only.
+and feature counts only. Counts are not generic limits on logger properties
+or imported execution evidence.
 
 ## Verification
 

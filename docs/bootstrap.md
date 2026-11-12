@@ -73,16 +73,16 @@ packages without applying source mapping, so also point `NUGET_PACKAGES` (or
 </configuration>
 ```
 
-Use the exact version from `Directory.Build.props` (currently `0.13.0`):
+Use the exact version from `Directory.Build.props` (currently `0.14.0`):
 
 ```sh
 export NUGET_PACKAGES="$PWD/artifacts/local-governance-cache-$$"
 mkdir "$NUGET_PACKAGES"
-dotnet tool install Mauve.Governance.Tool --version 0.13.0 \
+dotnet tool install Mauve.Governance.Tool --version 0.14.0 \
   --tool-path "$HOME/.dotnet/tools/governance-local" \
   --configfile /path/to/NuGet.Config
 "$HOME/.dotnet/tools/governance-local/governance" init \
-  --root /path/to/your/repository --profile core --bundle-version 0.13.0
+  --root /path/to/your/repository --profile core --bundle-version 0.14.0
 "$HOME/.dotnet/tools/governance-local/governance" validate \
   --root /path/to/your/repository
 ```
@@ -131,10 +131,10 @@ The package-reference pattern used by the local MSTest consumer is:
 ```xml
 <ItemGroup>
   <PackageReference Include="MSTest" Version="4.5.1" />
-  <PackageReference Include="Mauve.Governance.Testing.MSTest" Version="0.13.0" />
-  <PackageReference Include="Mauve.Governance.Testing.Analyzers" Version="0.13.0" />
-  <PackageReference Include="Mauve.Governance.Logging.Analyzers" Version="0.13.0" />
-  <PackageReference Include="Mauve.Governance.Testing.TrxLogger" Version="0.13.0" />
+  <PackageReference Include="Mauve.Governance.Testing.MSTest" Version="0.14.0" />
+  <PackageReference Include="Mauve.Governance.Testing.Analyzers" Version="0.14.0" />
+  <PackageReference Include="Mauve.Governance.Logging.Analyzers" Version="0.14.0" />
+  <PackageReference Include="Mauve.Governance.Testing.TrxLogger" Version="0.14.0" />
 </ItemGroup>
 ```
 
@@ -172,7 +172,7 @@ permissions and a hosted update run have been verified.
 ## Existing Governance installation
 
 Use a trusted newer tool to run `governance update --root <repository>
---check`, then `--apply` in a review branch. The known 0.2.0-0.12.0
+--check`, then `--apply` in a review branch. The known 0.2.0-0.13.0
 ownership manifests migrate to the current bundle; edited *owned* files
 are replaced in the proposed diff, while any file absent from the old
 manifest remains outside Governance ownership. An unknown schema, an

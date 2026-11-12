@@ -60,7 +60,7 @@ Mauve.Governance Policy. A full policy validator, verified hosted update
 automation remain planned; framework PR gates do not establish consumer readiness.
 
 To enroll an existing directory, use
-`governance init --root <path> --profile core --bundle-version 0.13.0`
+`governance init --root <path> --profile core --bundle-version 0.14.0`
 (or add `--check` to preview). This installs a version-pinned
 `.config/dotnet-tools.json`, managed governance workflows, repo-local skills and custom agents and governance
 documentation, including a [consumer-facing policy copy](governance.md),
@@ -74,7 +74,7 @@ reports drift; `--apply` changes managed files locally for review in a PR.
 The copied policy and governance documentation link to the
 [original policy source](src/templates/docs/governance.md) and explicitly say not to edit
 managed copies; consumer-specific guidance belongs in separate files.
-Known 0.2.0 through 0.12.0 manifests migrate; unmanaged collisions block
+Known 0.2.0 through 0.13.0 manifests migrate; unmanaged collisions block
 migration and are never adopted implicitly. No public Governance NuGet
 release or hosted update run is currently verified. The
 [`Mauve.Governance.MSTest.Example`](examples/Mauve.Governance.MSTest.Example/)

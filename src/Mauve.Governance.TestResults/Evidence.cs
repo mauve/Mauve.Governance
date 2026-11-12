@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Xml;
@@ -35,23 +37,20 @@ internal sealed partial class EvidenceJsonContext : JsonSerializerContext;
 
 public static class TrxEvidence
 {
-    private const long MaximumTrxBytes = 32 * 1024 * 1024;
-    private const int MaximumResults = 100_000;
-    private const int MaximumRuns = 1_000;
-    private const int MaximumReportBytes = 64 * 1024 * 1024;
+    private const int MaximumRecognizedMetadataKeyLength = 11;
+    private const int MaximumRequirementIdLength = 262;
+    private const int ValueChunkSize = 4096;
 
     public static EvidenceReport Empty { get; } = Build([]);
 
     public static EvidenceReport LoadReport(string path)
     {
-        using var stream = OpenBounded(path, MaximumReportBytes);
+        using var stream = File.OpenRead(path);
         var report = JsonSerializer.Deserialize(stream, EvidenceJsonContext.Default.EvidenceReport)
             ?? throw new InvalidDataException("Governance report is empty.");
         if (report.SchemaVersion != 1 || report.Runs is null ||
-            report.Runs.Length > MaximumRuns ||
             report.Runs.Any(static run => run is null || run.Sha256 is not { Length: 64 } ||
                 run.RunId is null || run.Tests is null ||
-                run.Tests.Length > MaximumResults ||
                 run.Tests.Any(static test => test is null || test.Id is null ||
                     test.Name is null || test.Feature is null || test.Outcome is null ||
                     test.Requirements is null)))
@@ -71,16 +70,11 @@ public static class TrxEvidence
 
     public static EvidenceReport AddTrx(EvidenceReport existing, string path)
     {
-        using var stream = OpenBounded(path, MaximumTrxBytes);
+        using var stream = File.OpenRead(path);
         var hash = Convert.ToHexString(SHA256.HashData(stream));
         if (existing.Runs.Any(run => run.Sha256 == hash))
         {
             return existing;
-        }
-
-        if (existing.Runs.Length >= MaximumRuns)
-        {
-            throw new InvalidDataException("Governance report exceeds the run limit.");
         }
 
         stream.Position = 0;
@@ -118,41 +112,61 @@ public static class TrxEvidence
         }
     }
 
-    private static FileStream OpenBounded(string path, long maximum)
-    {
-        var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        if (stream.Length <= maximum)
-        {
-            return stream;
-        }
-
-        stream.Dispose();
-        throw new InvalidDataException($"Input exceeds the {maximum}-byte limit.");
-    }
-
     private static ImportedRun Parse(Stream stream, string hash)
     {
         using var reader = XmlReader.Create(stream, new XmlReaderSettings
         {
             DtdProcessing = DtdProcessing.Prohibit,
             XmlResolver = null,
-            MaxCharactersInDocument = MaximumTrxBytes,
             MaxCharactersFromEntities = 0,
             IgnoreComments = true
         });
-        var definitions = new Dictionary<string, (string Name, string Feature, string[] Requirements)>(
-            StringComparer.Ordinal);
-        var results = new List<(string Id, string Name, string Outcome)>();
+        var definitions = new Dictionary<string, Definition>(StringComparer.Ordinal);
+        var results = new List<Result>();
+        var nestedResults = new Stack<(int Index, int Depth)>();
+        var innerResults = new Stack<int>();
         string? runId = null;
-        var inDefinitions = false;
-        var inResults = false;
+        var definitionsDepth = -1;
+        var resultsDepth = -1;
+        var sawDefinitions = false;
+        var sawResults = false;
 
         while (reader.Read())
         {
-            if (reader.NodeType == XmlNodeType.EndElement && reader.Depth == 1)
+            if (reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA or
+                XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace)
             {
-                inDefinitions = false;
-                inResults = false;
+                ConsumeValue(reader);
+                continue;
+            }
+
+            if (reader.NodeType == XmlNodeType.EndElement)
+            {
+                if (resultsDepth >= 0 && reader.Depth == resultsDepth &&
+                    reader.LocalName == "Results")
+                {
+                    resultsDepth = -1;
+                }
+
+                if (definitionsDepth >= 0 && reader.Depth == definitionsDepth &&
+                    reader.LocalName == "TestDefinitions")
+                {
+                    definitionsDepth = -1;
+                }
+
+                if (resultsDepth >= 0 && reader.LocalName == "UnitTestResult" &&
+                    nestedResults.TryPeek(out var openResult) && openResult.Depth == reader.Depth)
+                {
+                    nestedResults.Pop();
+                }
+
+                if (resultsDepth >= 0 && reader.LocalName == "InnerResults" &&
+                    innerResults.TryPeek(out var innerDepth) && innerDepth == reader.Depth)
+                {
+                    innerResults.Pop();
+                }
+
+                continue;
             }
 
             if (reader.NodeType != XmlNodeType.Element)
@@ -160,132 +174,265 @@ public static class TrxEvidence
                 continue;
             }
 
-            if (reader.Depth == 0 && reader.LocalName == "TestRun")
+            if (reader.Depth == 0)
             {
+                if (reader.LocalName != "TestRun" || runId is not null)
+                {
+                    throw new InvalidDataException("TRX root must be a TestRun element.");
+                }
+
                 runId = Required(reader.GetAttribute("id"), "TRX run id");
                 continue;
             }
 
             if (reader.Depth == 1)
             {
-                inDefinitions = reader.LocalName == "TestDefinitions";
-                inResults = reader.LocalName == "Results";
+                if (reader.LocalName == "TestDefinitions")
+                {
+                    if (sawDefinitions)
+                    {
+                        throw new InvalidDataException("TRX contains duplicate test definitions.");
+                    }
+
+                    sawDefinitions = true;
+                    definitionsDepth = reader.IsEmptyElement ? -1 : reader.Depth;
+                }
+                else if (reader.LocalName == "Results")
+                {
+                    if (sawResults)
+                    {
+                        throw new InvalidDataException("TRX contains duplicate result sections.");
+                    }
+
+                    sawResults = true;
+                    resultsDepth = reader.IsEmptyElement ? -1 : reader.Depth;
+                }
+
                 continue;
             }
 
-            if (inDefinitions && reader.Depth == 2 && reader.LocalName == "UnitTest" &&
-                reader.GetAttribute("id") is { } id)
+            if (definitionsDepth >= 0 && reader.Depth == definitionsDepth + 1 &&
+                reader.LocalName == "UnitTest")
             {
-                if (definitions.Count >= MaximumResults)
-                {
-                    throw new InvalidDataException("TRX exceeds the test-definition limit.");
-                }
-
-                id = Required(id, "TRX test id");
-                var name = Required(reader.GetAttribute("name"), "TRX test name");
-                using var subtree = reader.ReadSubtree();
-                var metadata = ReadMetadata(subtree);
-                if (!definitions.TryAdd(id, (name, metadata.Feature, metadata.Requirements)))
+                var id = Required(reader.GetAttribute("id"), "TRX test id");
+                _ = Required(reader.GetAttribute("name"), "TRX test name");
+                var metadata = ReadMetadata(reader);
+                if (!definitions.TryAdd(id,
+                        new Definition(metadata.Feature, metadata.Requirements)))
                 {
                     throw new InvalidDataException("Duplicate TRX test definition.");
                 }
             }
-            else if (inResults && reader.Depth == 2 && reader.LocalName == "UnitTestResult")
+            else if (resultsDepth >= 0 && reader.LocalName == "InnerResults" &&
+                nestedResults.TryPeek(out var enclosingResult) &&
+                reader.Depth == enclosingResult.Depth + 1 && !reader.IsEmptyElement)
             {
-                if (results.Count >= MaximumResults)
-                {
-                    throw new InvalidDataException("TRX exceeds the test-result limit.");
-                }
-
-                results.Add((
+                innerResults.Push(reader.Depth);
+            }
+            else if (resultsDepth >= 0 && reader.LocalName == "UnitTestResult" &&
+                (reader.Depth == resultsDepth + 1 ||
+                 (innerResults.TryPeek(out var innerDepth) && reader.Depth == innerDepth + 1)))
+            {
+                var nestedParent = nestedResults.TryPeek(out var parent)
+                    ? parent.Index
+                    : (int?)null;
+                var result = new Result(
                     Required(reader.GetAttribute("testId"), "TRX result testId"),
                     Required(reader.GetAttribute("testName"), "TRX result testName"),
-                    Required(reader.GetAttribute("outcome"), "TRX result outcome")));
+                    Required(reader.GetAttribute("outcome"), "TRX result outcome"),
+                    Optional(reader.GetAttribute("executionId"), "TRX result executionId"),
+                    Optional(reader.GetAttribute("parentExecutionId"), "TRX result parentExecutionId"),
+                    reader.GetAttribute("resultType"),
+                    nestedParent);
+                var resultIndex = results.Count;
+                results.Add(result);
+                if (!reader.IsEmptyElement)
+                {
+                    nestedResults.Push((resultIndex, reader.Depth));
+                }
             }
         }
 
-        if (runId is null || results.Count == 0)
+        if (runId is null || !sawDefinitions || !sawResults || results.Count == 0)
         {
-            throw new InvalidDataException("TRX must have a TestRun id and at least one test result.");
+            throw new InvalidDataException(
+                "TRX must have a TestRun id, test definitions, and at least one test result.");
         }
 
-        var observations = results.Select(result =>
+        var executionIds = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < results.Count; index++)
         {
-            if (!definitions.TryGetValue(result.Id, out var definition) ||
-                definition.Name != result.Name)
+            var executionId = results[index].ExecutionId;
+            if (executionId is not null && !executionIds.TryAdd(executionId, index))
+            {
+                throw new InvalidDataException("TRX contains duplicate execution ids.");
+            }
+
+            if (!definitions.ContainsKey(results[index].TestId))
             {
                 throw new InvalidDataException("TRX result has no matching test definition.");
             }
+        }
 
-            return new TestObservation(
-                result.Id, result.Name, definition.Feature, definition.Requirements, result.Outcome);
-        }).ToArray();
-        return new ImportedRun(hash, runId, observations);
-    }
-
-    private static (string Feature, string[] Requirements) ReadMetadata(XmlReader subtree)
-    {
-        var properties = new List<(string? Name, string? Value)>();
-        while (subtree.Read())
+        var parents = ResolveParents(results, executionIds);
+        ValidateParentAcyclic(parents);
+        var hasChildren = new bool[results.Count];
+        var failedDescendant = new bool[results.Count];
+        for (var index = 0; index < results.Count; index++)
         {
-            if (subtree.Depth > 64)
-            {
-                throw new InvalidDataException("TRX test definition exceeds the XML nesting limit.");
-            }
-
-            if (subtree.NodeType != XmlNodeType.Element ||
-                subtree.LocalName is not ("Property" or "TestProperty" or "Trait"))
+            if (parents[index] is not { } parentIndex)
             {
                 continue;
             }
 
-            if (properties.Count >= 64)
+            hasChildren[parentIndex] = true;
+            if (results[index].Outcome == "Failed")
             {
-                throw new InvalidDataException("TRX test definition exceeds the metadata limit.");
-            }
-
-            var name = subtree.GetAttribute("Name") ?? subtree.GetAttribute("name");
-            var value = subtree.GetAttribute("Value") ?? subtree.GetAttribute("value");
-            if (subtree.LocalName == "Property" && name is null && value is null)
-            {
-                using var property = subtree.ReadSubtree();
-                if (property.Read())
+                var failedDefinition = definitions[results[index].TestId];
+                var failedRequirements = failedDefinition.Requirements.ToHashSet(StringComparer.Ordinal);
+                var ancestor = parentIndex;
+                while (true)
                 {
-                    while (property.Read())
+                    var ancestorDefinition = definitions[results[ancestor].TestId];
+                    if (ancestorDefinition.Feature == failedDefinition.Feature &&
+                        ancestorDefinition.Requirements.All(failedRequirements.Contains))
                     {
-                        if (property.Depth > 64)
-                        {
-                            throw new InvalidDataException("TRX test property exceeds the XML nesting limit.");
-                        }
-                        if (property.Depth != 1 || property.NodeType != XmlNodeType.Element)
-                        {
-                            continue;
-                        }
-                        if (property.LocalName == "Key")
-                        {
-                            if (name is not null)
-                            {
-                                throw new InvalidDataException("Duplicate TRX test property key.");
-                            }
-                            name = property.ReadElementContentAsString();
-                        }
-                        if (property.NodeType == XmlNodeType.Element &&
-                            property.Depth == 1 && property.LocalName == "Value")
-                        {
-                            if (value is not null)
-                            {
-                                throw new InvalidDataException("Duplicate TRX test property value.");
-                            }
-                            value = property.ReadElementContentAsString();
-                        }
+                        failedDescendant[ancestor] = true;
                     }
+
+                    if (parents[ancestor] is not { } nextAncestor)
+                    {
+                        break;
+                    }
+
+                    ancestor = nextAncestor;
                 }
             }
-            if (name?.Length > 4096 || value?.Length > 4096)
+        }
+
+        var observations = new List<TestObservation>(results.Count);
+        for (var index = 0; index < results.Count; index++)
+        {
+            var result = results[index];
+            var hasInnerExecutions = hasChildren[index];
+            var isAggregateParent = result.ResultType == "DataDrivenTest" || hasInnerExecutions;
+            if (isAggregateParent && hasInnerExecutions &&
+                (result.Outcome != "Failed" || failedDescendant[index]))
             {
-                throw new InvalidDataException("TRX test property exceeds the metadata size limit.");
+                continue;
             }
-            properties.Add((name, value));
+
+            var definition = definitions[result.TestId];
+            observations.Add(new TestObservation(
+                result.TestId, result.Name, definition.Feature, definition.Requirements, result.Outcome));
+        }
+
+        return new ImportedRun(hash, runId, observations.ToArray());
+    }
+
+    private static int?[] ResolveParents(
+        IReadOnlyList<Result> results,
+        IReadOnlyDictionary<string, int> executionIds)
+    {
+        var parents = new int?[results.Count];
+        for (var index = 0; index < results.Count; index++)
+        {
+            var result = results[index];
+            int? explicitParent = null;
+            if (!string.IsNullOrWhiteSpace(result.ParentExecutionId))
+            {
+                if (!executionIds.TryGetValue(result.ParentExecutionId, out var parentIndex))
+                {
+                    throw new InvalidDataException("TRX result references an unknown parent execution.");
+                }
+
+                explicitParent = parentIndex;
+            }
+
+            if (result.NestedParentIndex is { } nestedParent &&
+                explicitParent is { } declaredParent && nestedParent != declaredParent)
+            {
+                throw new InvalidDataException("TRX result has conflicting parent execution identities.");
+            }
+
+            parents[index] = explicitParent ?? result.NestedParentIndex;
+            if (parents[index] == index)
+            {
+                throw new InvalidDataException("TRX result cannot be its own parent.");
+            }
+        }
+
+        return parents;
+    }
+
+    private static void ValidateParentAcyclic(IReadOnlyList<int?> parents)
+    {
+        var state = new byte[parents.Count];
+        var path = new List<int>();
+        for (var index = 0; index < parents.Count; index++)
+        {
+            if (state[index] != 0)
+            {
+                continue;
+            }
+
+            path.Clear();
+            var current = index;
+            while (state[current] == 0)
+            {
+                state[current] = 1;
+                path.Add(current);
+                if (parents[current] is not { } parent)
+                {
+                    break;
+                }
+
+                current = parent;
+            }
+
+            if (state[current] == 1 && parents[current] is not null)
+            {
+                throw new InvalidDataException("TRX result parent relationships contain a cycle.");
+            }
+
+            foreach (var visited in path)
+            {
+                state[visited] = 2;
+            }
+        }
+    }
+
+    private static (string Feature, string[] Requirements) ReadMetadata(XmlReader definition)
+    {
+        var properties = new List<(string? Name, string? Value)>();
+        var inProperties = false;
+        using var subtree = definition.ReadSubtree();
+        while (subtree.Read())
+        {
+            if (subtree.Depth == 1 && subtree.NodeType == XmlNodeType.EndElement)
+            {
+                inProperties = false;
+            }
+            else if (subtree.Depth == 1 && subtree.NodeType == XmlNodeType.Element)
+            {
+                inProperties = subtree.LocalName is "Properties" or "TestProperties" or "Traits" &&
+                    !subtree.IsEmptyElement;
+            }
+
+            if (subtree.NodeType == XmlNodeType.Element &&
+                subtree.LocalName is "Property" or "TestProperty" or "Trait" &&
+                (subtree.Depth == 1 || (subtree.Depth == 2 && inProperties)))
+            {
+                if (ReadMetadataProperty(subtree) is { } property)
+                {
+                    properties.Add(property);
+                }
+            }
+            else if (subtree.NodeType is XmlNodeType.Text or XmlNodeType.CDATA or
+                     XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace)
+            {
+                ConsumeValue(subtree);
+            }
         }
 
         var features = properties.Where(static item => item.Name == "Feature")
@@ -304,15 +451,234 @@ public static class TrxEvidence
             throw new InvalidDataException("TRX test has invalid Requirement properties.");
         }
 
-        return (features[0]!, requirements.Select(static item => item!).Order(StringComparer.Ordinal).ToArray());
+        return (features[0]!, requirements.Select(static item => item!)
+            .Order(StringComparer.Ordinal).ToArray());
+    }
+
+    private static (string? Name, string? Value)? ReadMetadataProperty(XmlReader reader)
+    {
+        var hasName = TryReadAttribute(reader, "Name", MaximumRecognizedMetadataKeyLength, out var name) ||
+            TryReadAttribute(reader, "name", MaximumRecognizedMetadataKeyLength, out name);
+        if (hasName)
+        {
+            if (name is not ("Feature" or "Requirement"))
+            {
+                ConsumeSubtree(reader);
+                return null;
+            }
+
+            var hasAttributeValue = TryReadAttribute(reader, "Value", MaximumRequirementIdLength, out var value) ||
+                TryReadAttribute(reader, "value", MaximumRequirementIdLength, out value);
+            if (hasAttributeValue)
+            {
+                ConsumeSubtree(reader);
+                return (name, value);
+            }
+
+            ConsumeSubtree(reader);
+            return (name, null);
+        }
+
+        using var propertyReader = reader.ReadSubtree();
+        var key = (string?)null;
+        string? childValue = null;
+        var hasKey = false;
+        var hasValue = false;
+        while (propertyReader.Read())
+        {
+            if (propertyReader.NodeType != XmlNodeType.Element || propertyReader.Depth != 1)
+            {
+                if (propertyReader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA or
+                    XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace)
+                {
+                    ConsumeValue(propertyReader);
+                }
+
+                continue;
+            }
+
+            if (propertyReader.LocalName == "Key")
+            {
+                if (hasKey)
+                {
+                    throw new InvalidDataException("Duplicate TRX test property key.");
+                }
+
+                hasKey = true;
+                key = ReadElementValue(propertyReader, MaximumRecognizedMetadataKeyLength);
+            }
+            else if (propertyReader.LocalName == "Value")
+            {
+                if (hasValue)
+                {
+                    throw new InvalidDataException("Duplicate TRX test property value.");
+                }
+
+                hasValue = true;
+                childValue = key is "Feature" or "Requirement"
+                    ? ReadElementValue(propertyReader, MaximumRequirementIdLength)
+                    : ConsumeElement(propertyReader);
+            }
+        }
+
+        return key is "Feature" or "Requirement" ? (key, childValue) : null;
+    }
+
+    private static string? ReadElementValue(XmlReader reader, int maximumLength)
+    {
+        if (reader.IsEmptyElement)
+        {
+            return string.Empty;
+        }
+
+        var depth = reader.Depth;
+        var value = new StringBuilder(Math.Min(maximumLength, 64));
+        var buffer = ArrayPool<char>.Shared.Rent(ValueChunkSize);
+        var tooLong = false;
+        try
+        {
+            while (reader.Read())
+            {
+                if (reader.NodeType == XmlNodeType.EndElement && reader.Depth == depth)
+                {
+                    return tooLong ? null : value.ToString();
+                }
+
+                if (reader.NodeType is not (XmlNodeType.Text or XmlNodeType.CDATA or
+                    XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace))
+                {
+                    continue;
+                }
+
+                while (true)
+                {
+                    var count = reader.ReadValueChunk(buffer, 0, ValueChunkSize);
+                    if (count == 0)
+                    {
+                        break;
+                    }
+
+                    if (!tooLong && value.Length + count <= maximumLength)
+                    {
+                        value.Append(buffer, 0, count);
+                    }
+                    else
+                    {
+                        tooLong = true;
+                    }
+                }
+            }
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
+        }
+
+        return tooLong ? null : value.ToString();
+    }
+
+    private static string? ConsumeElement(XmlReader reader)
+    {
+        ConsumeSubtree(reader);
+        return null;
+    }
+
+    private static void ConsumeSubtree(XmlReader reader)
+    {
+        if (reader.IsEmptyElement)
+        {
+            return;
+        }
+
+        var elementDepth = reader.Depth;
+        while (reader.Read())
+        {
+            if (reader.NodeType is XmlNodeType.Text or XmlNodeType.CDATA or
+                XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace)
+            {
+                ConsumeValue(reader);
+            }
+
+            if (reader.NodeType == XmlNodeType.EndElement && reader.Depth == elementDepth)
+            {
+                return;
+            }
+        }
+    }
+
+    private static bool TryReadAttribute(
+        XmlReader reader,
+        string name,
+        int maximumLength,
+        out string? value)
+    {
+        if (!reader.MoveToAttribute(name))
+        {
+            value = null;
+            return false;
+        }
+
+        try
+        {
+            var builder = new StringBuilder(Math.Min(maximumLength, 64));
+            var buffer = ArrayPool<char>.Shared.Rent(ValueChunkSize);
+            var tooLong = false;
+            try
+            {
+                while (true)
+                {
+                    var count = reader.ReadValueChunk(buffer, 0, ValueChunkSize);
+                    if (count == 0)
+                    {
+                        break;
+                    }
+
+                    if (!tooLong && builder.Length + count <= maximumLength)
+                    {
+                        builder.Append(buffer, 0, count);
+                    }
+                    else
+                    {
+                        tooLong = true;
+                    }
+                }
+            }
+            finally
+            {
+                ArrayPool<char>.Shared.Return(buffer);
+            }
+
+            value = tooLong ? null : builder.ToString();
+        }
+        finally
+        {
+            reader.MoveToElement();
+        }
+
+        return true;
+    }
+
+    private static void ConsumeValue(XmlReader reader)
+    {
+        var buffer = ArrayPool<char>.Shared.Rent(ValueChunkSize);
+        try
+        {
+            while (reader.ReadValueChunk(buffer, 0, ValueChunkSize) != 0)
+            {
+            }
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
+        }
     }
 
     private static bool IsFeature(string? value) =>
         value is not null && value.StartsWith("FEAT-", StringComparison.Ordinal) &&
         ValidIdSuffix(value.AsSpan(5));
 
-    private static bool IsRequirement(string value, string feature) =>
-        value.StartsWith(feature + "-", StringComparison.Ordinal) &&
+    private static bool IsRequirement(string? value, string feature) =>
+        value is not null && value.StartsWith(feature + "-", StringComparison.Ordinal) &&
         ValidIdSuffix(value.AsSpan(feature.Length + 1));
 
     private static bool ValidIdSuffix(ReadOnlySpan<char> suffix)
@@ -338,9 +704,12 @@ public static class TrxEvidence
         value is >= '0' and <= '9' or >= 'A' and <= 'Z' or >= 'a' and <= 'z';
 
     private static string Required(string? value, string field) =>
-        !string.IsNullOrWhiteSpace(value) && value.Length <= 4096
+        !string.IsNullOrWhiteSpace(value)
             ? value
-            : throw new InvalidDataException($"Missing or oversized {field}.");
+            : throw new InvalidDataException($"Missing {field}.");
+
+    private static string? Optional(string? value, string field) =>
+        value is null ? null : Required(value, field);
 
     private static EvidenceReport Build(ImportedRun[] runs)
     {
@@ -361,7 +730,7 @@ public static class TrxEvidence
         {
             if (run.Sha256.Length != 64 || !run.Sha256.All(Uri.IsHexDigit) ||
                 run.Sha256 != run.Sha256.ToUpperInvariant() ||
-                string.IsNullOrWhiteSpace(run.RunId) || run.Tests.Length > MaximumResults)
+                string.IsNullOrWhiteSpace(run.RunId) || run.Tests is null)
             {
                 throw new InvalidDataException("Governance report has an invalid run.");
             }
@@ -369,11 +738,12 @@ public static class TrxEvidence
             foreach (var test in run.Tests)
             {
                 if (!IsFeature(test.Feature) ||
+                    test.Requirements is null ||
                     test.Requirements.Any(requirement => !IsRequirement(requirement, test.Feature)) ||
                     test.Requirements.Distinct(StringComparer.Ordinal).Count() != test.Requirements.Length ||
-                    string.IsNullOrWhiteSpace(test.Id) || test.Id.Length > 4096 ||
-                    string.IsNullOrWhiteSpace(test.Name) || test.Name.Length > 4096 ||
-                    string.IsNullOrWhiteSpace(test.Outcome) || test.Outcome.Length > 4096)
+                    string.IsNullOrWhiteSpace(test.Id) ||
+                    string.IsNullOrWhiteSpace(test.Name) ||
+                    string.IsNullOrWhiteSpace(test.Outcome))
                 {
                     throw new InvalidDataException("Governance report has an invalid test observation.");
                 }
@@ -431,4 +801,15 @@ public static class TrxEvidence
         public int Skipped;
         public int NotExecuted;
     }
+
+    private sealed record Definition(string Feature, string[] Requirements);
+
+    private sealed record Result(
+        string TestId,
+        string Name,
+        string Outcome,
+        string? ExecutionId,
+        string? ParentExecutionId,
+        string? ResultType,
+        int? NestedParentIndex);
 }
