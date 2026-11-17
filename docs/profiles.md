@@ -7,12 +7,12 @@ diagnostic prefixes and performance thresholds are not defaults.
 
 ## Supported profiles: `core` and `core-requirements`
 
-The 0.13.0 tool accepts `--profile core` or
-`--profile core-requirements`, with `--bundle-version 0.13.0`, on `init`.
-It writes the selected `Profile` and `"BundleVersion": "0.13.0"` to the
+The 0.14.0 tool accepts `--profile core` or
+`--profile core-requirements`, with `--bundle-version 0.14.0`, on `init`.
+It writes the selected `Profile` and `"BundleVersion": "0.14.0"` to the
 manifest at `.mauve-governance/manifest.json`, along with owned paths and
 content hashes. `update` preserves the selected profile and migrates known
-0.2.0–0.12.0 manifests (bundles before 0.9.0 were `core`). Unknown profiles,
+0.2.0–0.13.0 manifests (bundles before 0.9.0 were `core`). Unknown profiles,
 manifest schemas, versions and
 owned-file hashes are rejected rather than treated as compatible.
 
@@ -45,17 +45,18 @@ and GitHub App setup steps.
 
 `core-requirements` includes all `core` checks and additionally requires
 `docs/Requirements/README.md` and
-`docs/Requirements/Planned/README.md` to exist. These lifecycle files and
-feature specifications are editable; the Tool preserves existing files
-and does not overwrite them. Create the lifecycle layout before enrollment
-with this profile; a missing
-`docs/Requirements/` directory fails enrollment and validation under
-this profile. The active/planned feature-document checks then run against
-the required layout. `core` performs those checks only if the layout
-already exists. Both use the reusable `Mauve.Governance.Requirements`
-validation library. New `core` enrollments also receive starter lifecycle
-READMEs; unlike `core-requirements`, `core` does not require the layout to
-remain present. The choice cannot be silently changed by `update`.
+`docs/Requirements/Planned/README.md` to exist. `init` creates these starters
+(and `Planned/`) when missing and never overwrites existing files; if feature
+documents exist without both READMEs, `init` fails so they are not enrolled
+unvalidated. Later removal of the layout fails `validate`. The
+active/planned feature-document checks then run against the layout;
+`validate --strict-planned` also applies the active section and
+Security/Acceptance checks to `Planned/`. `core` performs the default checks
+only if the layout already exists. Both use the reusable
+`Mauve.Governance.Requirements` validation library. New `core` enrollments also
+receive starter lifecycle READMEs; unlike `core-requirements`, `core` does not
+require the layout to remain present. The choice cannot be silently changed by
+`update`.
 
 `core` does **not** require Central Package Management in consumers, run
 analyzers across their projects, check executable file kinds or workflow
@@ -83,7 +84,7 @@ that active-requirement method declarations and source metadata are checked;
 this does not establish observed run outcomes.
 A future release-time gap report may merge that ledger with manual and
 automated run reports, but no such merger or release-blocking run-evidence gap gate
-exists in 0.13.0.
+exists in 0.14.0.
 
 ## Proposed extensions, not selectable profiles
 
@@ -97,5 +98,5 @@ validation, its actual validator or analyzer, negative fixtures and a
 required consumer CI gate before it can be documented as supported.
 
 Do not use `--profile fleet` or invent a JSON profile alongside the
-ownership manifest: the 0.13.0 tool rejects other profile names, and
+ownership manifest: the 0.14.0 tool rejects other profile names, and
 unrecognized configuration is not interpreted or enforced.

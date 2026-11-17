@@ -19,7 +19,7 @@ public sealed class RequirementDocumentsTests
         **Security:** Safe
         **Acceptance:** Verified
         ## Metrics Impact
-        None
+        **Instruments:** none - fixture
         ## Verification
         Tests
         ## Diagrams
@@ -171,6 +171,70 @@ public sealed class RequirementDocumentsTests
     {
         using var fixture = new FeatureDirectory();
         fixture.WriteActive(Active.Replace("### FEAT-1-001 - Condition", replacement, StringComparison.Ordinal));
+        Assert.Throws<InvalidDataException>(() => RequirementDocuments.Validate(fixture.Root));
+    }
+
+    [Fact]
+    [Trait("Feature", "FEAT-02")]
+    [Trait("Requirement", "FEAT-02-002")]
+    public void Extension_sections_are_allowed_only_between_requirements_and_metrics()
+    {
+        using var fixture = new FeatureDirectory();
+        fixture.WriteActive(Active.Replace("## Metrics Impact", "## Design\nD\n## Implementation Plan\nP\n## Metrics Impact", StringComparison.Ordinal));
+        RequirementDocuments.Validate(fixture.Root);
+        fixture.WriteActive(Active.Replace("## Metrics Impact", "## Implementation Plan\nP\n## Design\nD\n## Metrics Impact", StringComparison.Ordinal));
+        Assert.Throws<InvalidDataException>(() => RequirementDocuments.Validate(fixture.Root));
+        fixture.WriteActive(Active.Replace("## Diagrams\nNone", "## Diagrams\nNone\n## Design\nD", StringComparison.Ordinal));
+        Assert.Throws<InvalidDataException>(() => RequirementDocuments.Validate(fixture.Root));
+    }
+
+    [Fact]
+    [Trait("Feature", "FEAT-02")]
+    [Trait("Requirement", "FEAT-02-002")]
+    public void Strict_planned_mode_applies_structural_checks_and_counts_planned_work()
+    {
+        using var fixture = new FeatureDirectory();
+        fixture.WriteActive(Active);
+        fixture.WritePlanned("# FEAT-1: Future\n## Status\n**PLANNED**\n### FEAT-1-002 - Later\n");
+        RequirementDocuments.Validate(fixture.Root);
+        Assert.Throws<InvalidDataException>(() => RequirementDocuments.Validate(fixture.Root, strictPlanned: true));
+        Assert.Equal(new RequirementSummary(1, 1, 1, 1), RequirementDocuments.Summarize(fixture.Root));
+        fixture.WritePlanned(Active.Replace("**PARTIAL**", "**PLANNED**", StringComparison.Ordinal)
+            .Replace("FEAT-1-001", "FEAT-1-002", StringComparison.Ordinal));
+        RequirementDocuments.Validate(fixture.Root, strictPlanned: true);
+    }
+
+    [Fact]
+    [Trait("Feature", "FEAT-02")]
+    [Trait("Requirement", "FEAT-02-002")]
+    public void Metrics_impact_must_declare_instruments_with_labels_or_a_reason()
+    {
+        using var fixture = new FeatureDirectory();
+        fixture.WriteActive(Active.Replace("**Instruments:** none - fixture", "Prose only", StringComparison.Ordinal));
+        Assert.Throws<InvalidDataException>(() => RequirementDocuments.Validate(fixture.Root));
+        fixture.WriteActive(Active.Replace("**Instruments:** none - fixture", "**Instruments:** none", StringComparison.Ordinal));
+        Assert.Throws<InvalidDataException>(() => RequirementDocuments.Validate(fixture.Root));
+        fixture.WriteActive(Active.Replace("**Instruments:** none - fixture", "**Instruments:** `mb.jobs`", StringComparison.Ordinal));
+        Assert.Throws<InvalidDataException>(() => RequirementDocuments.Validate(fixture.Root));
+        fixture.WriteActive(Active.Replace("**Instruments:** none - fixture",
+            "**Instruments:** `mb.jobs`\n**Emission points:** a\n**Tags:** b\n**Privacy:** c\n**Dashboards:** d\n**Tests:** e",
+            StringComparison.Ordinal));
+        RequirementDocuments.Validate(fixture.Root);
+    }
+
+    [Fact]
+    [Trait("Feature", "FEAT-02")]
+    [Trait("Requirement", "FEAT-02-002")]
+    public void Diagnostic_codes_and_instruments_must_be_unique_across_documents()
+    {
+        using var fixture = new FeatureDirectory();
+        fixture.WriteActive(Active.Replace("## Diagrams", "**Diagnostics:** `MB-X-0001`, `MB-X-0002`\n## Diagrams", StringComparison.Ordinal));
+        RequirementDocuments.Validate(fixture.Root);
+        fixture.WritePlanned("# FEAT-1: Future\n## Status\n**PLANNED**\n**Diagnostics:** `MB-X-0002`\n### FEAT-1-002 - Later\n");
+        Assert.Throws<InvalidDataException>(() => RequirementDocuments.Validate(fixture.Root));
+        fixture.WritePlanned("# FEAT-1: Future\n## Status\n**PLANNED**\n**Diagnostics:** MB-X-0003\n### FEAT-1-002 - Later\n");
+        Assert.Throws<InvalidDataException>(() => RequirementDocuments.Validate(fixture.Root));
+        fixture.WritePlanned("# FEAT-1: Future\n## Status\n**PLANNED**\n## Metrics Impact\n**Instruments:** `a`, `a`\n### FEAT-1-002 - Later\n");
         Assert.Throws<InvalidDataException>(() => RequirementDocuments.Validate(fixture.Root));
     }
 

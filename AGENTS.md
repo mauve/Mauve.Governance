@@ -18,3 +18,8 @@ repository-specific guidance outside managed paths. Do not treat planned
 requirements, skipped tests, or source-only traceability as passing test-run
 evidence. A documented rule is not an enforced check until its validator
 and required gate exist.
+
+Repository-specific agent instructions belong in the unmanaged
+[`docs/AGENT_INSTRUCTIONS.md`](docs/AGENT_INSTRUCTIONS.md). Read it before
+changing the repository; it is editable, is not overwritten by Governance
+updates and does not weaken this policy.

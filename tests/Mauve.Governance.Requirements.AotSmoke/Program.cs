@@ -40,7 +40,7 @@ try
         **Security:** Safe
         **Acceptance:** Verified
         ## Metrics Impact
-        None
+        **Instruments:** none - fixture
         ## Verification
         Smoke
         ## Diagrams

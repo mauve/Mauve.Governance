@@ -22,7 +22,7 @@ internal static class RepositorySetup
         "docs/governance/GOVERNANCE_POLICY.md",
         "docs/governance/README.md"
     ];
-    internal const string CurrentBundleVersion = "0.13.0";
+    internal const string CurrentBundleVersion = "0.14.0";
     private const string CoreProfile = "core";
     private const string RequirementsProfile = "core-requirements";
     private static readonly ManifestJsonContext ReadableManifestContext =
@@ -189,6 +189,25 @@ internal static class RepositorySetup
             ["style-guide.md"] = "15838FAE1FF360435C952299EFB8DC5AA742B763EF9F04F650932F6F6A4EA0A2"
         };
 
+    private static readonly IReadOnlyDictionary<string, string> PreviousMetricsHashes =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [".config/dotnet-tools.json"] = "547CC8FEA7B671DB78F40DE77567ACEA43E2BDAE60A17A7E14566E42DC82D631",
+            [".editorconfig"] = "F24D58B61F197FC8168F50EB3B8FEDADF897188FF940097AD4CC1E7C6F42BD0E",
+            [".github/agents/governance-evidence.agent.md"] = "D82AEE7CED84D47E6CAEB172B52862C4FA9156AFCD604D6E2CAE076EAE7E320F",
+            [".github/agents/governance-maintainer.agent.md"] = "695A2387DEFF42CC573D9503DA23143E14AC08F4AD50D3EA7E42BC4115A820B5",
+            [".github/skills/governance-analyzer-remediation/SKILL.md"] = "954A0E4FC1AFBBA30849E9F48E65A8318EAD60C114122C8BBA16AEBE98D43636",
+            [".github/skills/governance-bootstrap/SKILL.md"] = "E7DD9E73DFD617C6BD436FC1940EB12D5A9BD4A0726CFE498AA0050F21D5D05B",
+            [".github/skills/governance-test-evidence/SKILL.md"] = "FA2FAB8C577AF27493E58B1C54C6398C482AB3A8F741257C5374BBD53697B79A",
+            [".github/workflows/governance-policy.yml"] = "FA9111382EBCA876253CB9DC35305806CBAB102BAF299C2BF0D10794C83D4D4F",
+            [".github/workflows/governance-update.yml"] = "4A16589DD5FE21586114E7F0D5C02F5A4780CC2E38A34DC281FE84420270B010",
+            ["AGENTS.md"] = "0248BE1998E8C93FCBC319EBB5B64BFEBB6020770F03E04CF26AAADC385B2AEE",
+            ["docs/Policies/README.md"] = "165F92963F74FBD79610F7AB587F63166D75683F5A8AC35385E79A624E10178B",
+            ["docs/governance.md"] = "6FF3E37B23E21595E69281A18E046B42FFFDCBAFE128E81AB0896C89C0C5663E",
+            ["governance.md"] = "D9357E011A5FB3CF0C8989D818E4D6C636CD9ADED7D71EE9F4A9F23E045A4052",
+            ["style-guide.md"] = "15838FAE1FF360435C952299EFB8DC5AA742B763EF9F04F650932F6F6A4EA0A2"
+        };
+
     private static readonly string[] TemplatePaths =
     [
         ".config/dotnet-tools.json",
@@ -211,7 +230,8 @@ internal static class RepositorySetup
     [
         "docs/Requirements/README.md",
         "docs/Requirements/Planned/README.md",
-        "docs/validation-gaps.md"
+        "docs/validation-gaps.md",
+        "docs/AGENT_INSTRUCTIONS.md"
     ];
 
     private static readonly IReadOnlyDictionary<string, string> AllTemplates = LoadTemplates();
@@ -222,7 +242,7 @@ internal static class RepositorySetup
     internal static IReadOnlyList<string> EditableScaffoldPaths => ScaffoldPaths;
 
     public static int Run(string command, string root, bool check,
-        string? profile = null, string? bundleVersion = null)
+        string? profile = null, string? bundleVersion = null, bool strictPlanned = false)
     {
         if (profile is not null && !SupportedProfile(profile))
         {
@@ -267,9 +287,10 @@ internal static class RepositorySetup
                 "0.10.0" => PreviousTemplateBundleHashes,
                 "0.11.0" => PreviousTraceabilityHashes,
                 "0.12.0" => PreviousDeclarationHashes,
+                "0.13.0" => PreviousMetricsHashes,
                 _ => null
             };
-            if (existing.BundleVersion is not ("0.9.0" or "0.10.0" or "0.11.0" or "0.12.0") && existing.Profile != CoreProfile ||
+            if (existing.BundleVersion is not ("0.9.0" or "0.10.0" or "0.11.0" or "0.12.0" or "0.13.0") && existing.Profile != CoreProfile ||
                 expected is null ||
                 existing.Files.Length != expected.Count ||
                 existing.Files.Any(file =>
@@ -290,11 +311,19 @@ internal static class RepositorySetup
 
         if (command == "init" && profile == RequirementsProfile)
         {
-            if (!Directory.Exists(Path.Combine(fullRoot, "docs", "Requirements")))
+            var requirementsDirectory = Path.Combine(fullRoot, "docs", "Requirements");
+            var layoutComplete = File.Exists(Path.Combine(requirementsDirectory, "README.md")) &&
+                File.Exists(Path.Combine(requirementsDirectory, "Planned", "README.md"));
+            if (layoutComplete)
             {
-                throw new InvalidDataException("Profile core-requirements requires docs/Requirements and its Planned lifecycle.");
+                RequirementDocuments.Validate(fullRoot);
             }
-            RequirementDocuments.Validate(fullRoot);
+            else if (Directory.Exists(requirementsDirectory) &&
+                Directory.EnumerateFiles(requirementsDirectory, "FEAT-*.md", SearchOption.AllDirectories).Any())
+            {
+                // Missing lifecycle READMEs are scaffolded, but existing feature documents must be validated first.
+                throw new InvalidDataException("Feature documents exist without both lifecycle README files; add them before enrolling core-requirements.");
+            }
         }
 
         var owned = existing?.Files.ToDictionary(static file => file.Path, StringComparer.Ordinal) ??
@@ -416,7 +445,12 @@ internal static class RepositorySetup
             {
                 throw new InvalidDataException("Profile core-requirements requires docs/Requirements and its Planned lifecycle.");
             }
-            RequirementDocuments.Validate(fullRoot);
+            if (!File.Exists(Resolve(fullRoot, "docs/AGENT_INSTRUCTIONS.md")))
+            {
+                throw new InvalidDataException("Repository-owned docs/AGENT_INSTRUCTIONS.md is missing; run update to scaffold it.");
+            }
+            RequirementDocuments.Validate(fullRoot, strictPlanned);
+            var summary = RequirementDocuments.Summarize(fullRoot, strictPlanned);
             var traceability = TraceabilityGenerator.GenerateFromDirectory(fullRoot);
             if (!traceability.IsValid)
             {
@@ -425,7 +459,7 @@ internal static class RepositorySetup
                     $"{diagnostic.Code}: {diagnostic.Path}:{diagnostic.Line}: {diagnostic.Message}");
             }
             ValidationGaps.Validate(fullRoot, traceability.Tests.SelectMany(test => test.Requirements));
-            Console.WriteLine($"Managed Governance files, active requirement methods and source declarations are valid ({traceability.Tests.Count} tests).");
+            Console.WriteLine($"Managed Governance files, active requirement methods and source declarations are valid ({traceability.Tests.Count} tests). Planned work, not evidence: {summary.PlannedDocuments} documents, {summary.PlannedRequirements} requirements; active: {summary.ActiveDocuments} documents, {summary.ActiveRequirements} requirements.");
             return 0;
         }
 

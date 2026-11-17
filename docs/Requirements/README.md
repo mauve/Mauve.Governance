@@ -29,6 +29,21 @@ implemented or partial feature. Use these sections in order:
 6. `Diagrams` — placement/interaction diagrams when they explain a real
    boundary; otherwise give a concrete reason for omission.
 
+Every active `Metrics Impact` section MUST contain a bold `**Instruments:**`
+line: either `none - <reason>` or backticked instrument names plus
+`**Emission points:**`, `**Tags:**`, `**Privacy:**`, `**Dashboards:**` and
+`**Tests:**` lines. Optional `**Diagnostics:**` lines list backticked
+diagnostic codes anywhere in a document. Instrument names and diagnostic
+codes MUST be unique across all active and planned documents; the feature
+documents are the source of truth, so there is no separate catalog.
+
+Two optional extension sections are accepted, each at most once and only
+between `Requirements` and `Metrics Impact`, in this order: `Design`, then
+`Implementation Plan`. No other section names are accepted. `governance
+validate --strict-planned` applies this section layout and the
+Security/Acceptance line checks to `Planned/` documents; by default planned
+documents need only the PLANNED marker and valid IDs.
+
 Future consumer profiles may tighten the format, but neither current profile
 accepts configurable section names, paths or IDs. Do not claim such checks
 are enforced before a validator and required CI gate exist.

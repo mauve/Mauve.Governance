@@ -62,6 +62,8 @@ for xUnit v2/v3 and NUnit.
 
 ## Metrics Impact
 
+**Instruments:** none - no runtime instruments are added.
+
 No production instruments or payments telemetry are introduced; only
 test-run fixture counts are emitted.
 

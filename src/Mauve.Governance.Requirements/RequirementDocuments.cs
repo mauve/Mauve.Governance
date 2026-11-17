@@ -14,13 +14,35 @@ public static class RequirementDocuments
         "Metrics Impact", "Verification", "Diagrams"
     ];
 
-    public static void Validate(string root)
-        => ValidateCore(root);
+    private static readonly string[] ExtensionSections = ["Design", "Implementation Plan"];
+
+    public static void Validate(string root, bool strictPlanned = false)
+        => ValidateCore(root, strictPlanned, new Counts());
 
     public static IReadOnlySet<string> GetActiveRequirementIds(string root)
-        => ValidateCore(root);
+        => ValidateCore(root, strictPlanned: false, new Counts());
 
-    private static IReadOnlySet<string> ValidateCore(string root)
+    public static RequirementSummary Summarize(string root, bool strictPlanned = false)
+    {
+        var counts = new Counts();
+        ValidateCore(root, strictPlanned, counts);
+        return new RequirementSummary(counts.ActiveDocuments, counts.ActiveRequirements,
+            counts.PlannedDocuments, counts.PlannedRequirements);
+    }
+
+    private static readonly string[] MetricLabels =
+        ["Instruments", "Emission points", "Tags", "Privacy", "Dashboards", "Tests"];
+
+    private sealed class Counts
+    {
+        public readonly HashSet<string> Declared = new(StringComparer.Ordinal);
+        public int ActiveDocuments;
+        public int ActiveRequirements;
+        public int PlannedDocuments;
+        public int PlannedRequirements;
+    }
+
+    private static IReadOnlySet<string> ValidateCore(string root, bool strictPlanned, Counts counts)
     {
         ArgumentNullException.ThrowIfNull(root);
         if (!Directory.Exists(root) || IsLink(root))
@@ -61,8 +83,8 @@ public static class RequirementDocuments
 
         var claimed = new HashSet<string>(StringComparer.Ordinal);
         var active = new HashSet<string>(StringComparer.Ordinal);
-        CheckFiles(requirementsRoot, planned: false, claimed, active);
-        CheckFiles(plannedRoot, planned: true, claimed, active);
+        CheckFiles(requirementsRoot, planned: false, strictPlanned, counts, claimed, active);
+        CheckFiles(plannedRoot, planned: true, strictPlanned, counts, claimed, active);
         return active;
     }
 
@@ -102,7 +124,8 @@ public static class RequirementDocuments
         }
     }
 
-    private static void CheckFiles(string directory, bool planned, HashSet<string> claimed, HashSet<string> active)
+    private static void CheckFiles(string directory, bool planned, bool strictPlanned, Counts counts,
+        HashSet<string> claimed, HashSet<string> active)
     {
         foreach (var path in Directory.EnumerateFiles(directory, "FEAT-*.md").Order(StringComparer.Ordinal))
         {
@@ -135,10 +158,24 @@ public static class RequirementDocuments
 
             var sections = blocks.OfType<HeadingBlock>().Where(static heading => heading.Level == 2)
                 .Select(heading => HeadingText(source, heading)).ToArray();
-            if (!planned && !sections.SequenceEqual(ActiveSections))
+            var structural = !planned || strictPlanned;
+            if (structural && !HasValidSections(sections))
             {
-                throw new InvalidDataException("Active feature sections are missing or out of order.");
+                throw new InvalidDataException(planned
+                    ? "Strict planned feature sections are missing or out of order."
+                    : "Active feature sections are missing or out of order.");
             }
+
+            if (planned)
+            {
+                counts.PlannedDocuments++;
+            }
+            else
+            {
+                counts.ActiveDocuments++;
+            }
+
+            CheckDeclarations(source, blocks, structural, counts.Declared);
 
             if (planned && !blocks.OfType<ParagraphBlock>()
                 .Any(paragraph => ParagraphLines(source, paragraph)
@@ -169,10 +206,19 @@ public static class RequirementDocuments
                 requirements++;
                 if (planned)
                 {
+                    counts.PlannedRequirements++;
+                }
+                else
+                {
+                    counts.ActiveRequirements++;
+                    active.Add(id);
+                }
+
+                if (planned && !strictPlanned)
+                {
                     continue;
                 }
 
-                active.Add(id);
                 var security = false;
                 var acceptance = false;
                 for (var next = index + 1; next < blocks.Length; next++)
@@ -194,15 +240,178 @@ public static class RequirementDocuments
 
                 if (!security || !acceptance)
                 {
-                    throw new InvalidDataException("Active requirement needs Security and Acceptance evidence.");
+                    throw new InvalidDataException(planned
+                        ? "Strict planned requirement needs Security and Acceptance lines."
+                        : "Active requirement needs Security and Acceptance evidence.");
                 }
             }
 
-            if (!planned && requirements == 0)
+            if (structural && requirements == 0)
             {
-                throw new InvalidDataException("Active feature document must own a requirement.");
+                throw new InvalidDataException(planned
+                    ? "Strict planned feature document must own a requirement."
+                    : "Active feature document must own a requirement.");
             }
         }
+    }
+
+    // Instruments and Diagnostics are declared in backticks under bold labels; declarations must be
+    // unique across all feature documents. Active documents must always state their instruments.
+    private static void CheckDeclarations(string source, Block[] blocks, bool structural, HashSet<string> declared)
+    {
+        var section = string.Empty;
+        var labels = new HashSet<string>(StringComparer.Ordinal);
+        string? instruments = null;
+        foreach (var block in blocks)
+        {
+            if (block is HeadingBlock { Level: 2 } heading)
+            {
+                section = HeadingText(source, heading);
+                continue;
+            }
+
+            if (block is not ParagraphBlock paragraph)
+            {
+                continue;
+            }
+
+            foreach (var line in ParagraphLines(source, paragraph))
+            {
+                if (line.StartsWith("**Diagnostics:**", StringComparison.Ordinal))
+                {
+                    Declare(line["**Diagnostics:**".Length..], "diagnostic", declared);
+                }
+
+                if (section != "Metrics Impact")
+                {
+                    continue;
+                }
+
+                foreach (var label in MetricLabels)
+                {
+                    var prefix = $"**{label}:**";
+                    if (!line.StartsWith(prefix, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    labels.Add(label);
+                    if (label == "Instruments")
+                    {
+                        instruments = line[prefix.Length..];
+                        Declare(instruments, "instrument", declared);
+                    }
+                }
+            }
+        }
+
+        if (!structural)
+        {
+            return;
+        }
+
+        if (instruments is null)
+        {
+            throw new InvalidDataException("Metrics Impact needs an **Instruments:** line (use 'none' with a reason).");
+        }
+
+        if (IsNone(instruments))
+        {
+            if (instruments.Trim()[4..].Trim(' ', '-', '\u2013', '\u2014', ':', '.').Length == 0)
+            {
+                throw new InvalidDataException("An **Instruments:** none declaration needs a reason.");
+            }
+
+            return;
+        }
+
+        if (MetricLabels.Any(label => !labels.Contains(label)))
+        {
+            throw new InvalidDataException("Metrics Impact with instruments needs Instruments, Emission points, Tags, Privacy, Dashboards and Tests labels.");
+        }
+    }
+
+    private static void Declare(string value, string kind, HashSet<string> declared)
+    {
+        if (IsNone(value))
+        {
+            return;
+        }
+
+        var names = BacktickSpans(value);
+        if (names.Count == 0)
+        {
+            throw new InvalidDataException($"Each {kind} declaration needs at least one backticked name or 'none'.");
+        }
+
+        foreach (var name in names)
+        {
+            if (!declared.Add(kind + ":" + name))
+            {
+                throw new InvalidDataException($"Duplicate {kind} declaration across feature documents.");
+            }
+        }
+    }
+
+    private static bool IsNone(string value)
+    {
+        var trimmed = value.Trim();
+        return trimmed.StartsWith("none", StringComparison.OrdinalIgnoreCase) &&
+            (trimmed.Length == 4 || !char.IsLetterOrDigit(trimmed[4]));
+    }
+
+    private static List<string> BacktickSpans(string value)
+    {
+        var spans = new List<string>();
+        var start = -1;
+        for (var index = 0; index < value.Length; index++)
+        {
+            if (value[index] != '`')
+            {
+                continue;
+            }
+
+            if (start < 0)
+            {
+                start = index + 1;
+                continue;
+            }
+
+            var name = value[start..index].Trim();
+            if (name.Length > 0)
+            {
+                spans.Add(name);
+            }
+
+            start = -1;
+        }
+
+        return spans;
+    }
+
+    // Design and Implementation Plan are the only extension sections: optional, once each, in that
+    // order, between Requirements and Metrics Impact.
+    private static bool HasValidSections(string[] sections)
+    {
+        var core = sections.Where(static name => !ExtensionSections.Contains(name, StringComparer.Ordinal)).ToArray();
+        if (!core.SequenceEqual(ActiveSections))
+        {
+            return false;
+        }
+
+        var extensions = sections.Where(static name => ExtensionSections.Contains(name, StringComparer.Ordinal)).ToArray();
+        if (!extensions.SequenceEqual(ExtensionSections.Where(extensions.Contains)))
+        {
+            return false;
+        }
+
+        var requirements = Array.IndexOf(sections, "Requirements");
+        var metrics = Array.IndexOf(sections, "Metrics Impact");
+        return extensions.All(name =>
+        {
+            var index = Array.IndexOf(sections, name);
+            return index > requirements && index < metrics;
+        });
     }
 
     private static string HeadingText(string source, HeadingBlock heading)
@@ -252,3 +461,6 @@ public static class RequirementDocuments
     private static bool Alphanumeric(char value) =>
         value is >= '0' and <= '9' or >= 'A' and <= 'Z' or >= 'a' and <= 'z';
 }
+
+public sealed record RequirementSummary(
+    int ActiveDocuments, int ActiveRequirements, int PlannedDocuments, int PlannedRequirements);

@@ -109,6 +109,8 @@ preserves that metadata for evidence import.
 
 ## Metrics Impact
 
+**Instruments:** none - no runtime instruments are added.
+
 No runtime metrics are introduced by this consumer verification.
 
 ## Verification

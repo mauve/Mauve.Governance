@@ -15,6 +15,16 @@ Each active requirement has a unique `### FEAT-<id>-<requirement>` heading
 with explicit **Acceptance:** and **Security:** evidence. Link its validation
 method in `docs/validation-gaps.md`; a documented test is not proof it ran.
 
+Two optional sections, `Design` then `Implementation Plan`, may appear once
+each between `Requirements` and `Metrics Impact`; no other extra sections are
+accepted. A minimal skeleton: `# FEAT-<id>: <title>`, then `## Status`
+(**PLANNED** for drafts), `## Capability`, `## Context`, `## Requirements`
+(with `### FEAT-<id>-<n> - <title>` plus **Security:** and **Acceptance:**
+lines), `## Metrics Impact` (with an `**Instruments:**` line: `none - <reason>`
+or backticked names plus Emission points, Tags, Privacy, Dashboards and Tests
+labels; optional `**Diagnostics:**` lines list backticked codes, and names
+and codes must be unique across documents), `## Verification`, `## Diagrams`.
+
 ## Planned work and decisions
 
 Keep proposals and unimplemented requirements in `Planned/` with an explicit

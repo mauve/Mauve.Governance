@@ -29,6 +29,7 @@ is managed; write individual `POL-*.md` extensions beside it.
 | `src/templates/docs/Requirements/README.md` | `docs/Requirements/README.md` | Editable starter, expanded here for this repository. |
 | `src/templates/docs/Requirements/Planned/README.md` | `docs/Requirements/Planned/README.md` | Editable starter, expanded here for this repository. |
 | `src/templates/docs/validation-gaps.md` | `docs/validation-gaps.md` | Editable starter with this repository's requirement rows. |
+| `src/templates/docs/AGENT_INSTRUCTIONS.md` | `docs/AGENT_INSTRUCTIONS.md` | Editable repository-owned agent instructions, linked from the managed `AGENTS.md`; `validate` requires it to exist. |
 
 ## Local-first bootstrap and consumer verification
 
@@ -73,16 +74,16 @@ packages without applying source mapping, so also point `NUGET_PACKAGES` (or
 </configuration>
 ```
 
-Use the exact version from `Directory.Build.props` (currently `0.13.0`):
+Use the exact version from `Directory.Build.props` (currently `0.14.0`):
 
 ```sh
 export NUGET_PACKAGES="$PWD/artifacts/local-governance-cache-$$"
 mkdir "$NUGET_PACKAGES"
-dotnet tool install Mauve.Governance.Tool --version 0.13.0 \
+dotnet tool install Mauve.Governance.Tool --version 0.14.0 \
   --tool-path "$HOME/.dotnet/tools/governance-local" \
   --configfile /path/to/NuGet.Config
 "$HOME/.dotnet/tools/governance-local/governance" init \
-  --root /path/to/your/repository --profile core --bundle-version 0.13.0
+  --root /path/to/your/repository --profile core --bundle-version 0.14.0
 "$HOME/.dotnet/tools/governance-local/governance" validate \
   --root /path/to/your/repository
 ```
@@ -96,11 +97,32 @@ dotnet tool restore --configfile /path/to/NuGet.Config
 dotnet tool run governance -- validate --root .
 ```
 
-Select `core-requirements` only when the consumer owns
-`docs/Requirements/README.md` and `docs/Requirements/Planned/README.md`;
-create these files and the `Planned/` directory before `init`. Review the
+If no feed publishes the pinned tool, a consumer can instead run the Tool
+from a Governance checkout, using that checkout's pinned SDK; the pinned
+tool manifest then cannot restore, so keep hosted validation disabled:
+
+```sh
+dotnet run --project /path/to/Mauve.Governance/src/Mauve.Governance.Tool \
+  -c Release -- validate --root /path/to/your/repository
+```
+
+`init --profile core-requirements` creates any missing
+`docs/Requirements/README.md`, `docs/Requirements/Planned/README.md` and
+`docs/validation-gaps.md` starters and never overwrites existing files. If
+feature documents already exist without both lifecycle READMEs, add the
+READMEs first so the documents are validated before enrollment. Review the
 generated ownership manifest and diff, and keep editable feature documents
 and `docs/validation-gaps.md` outside Governance ownership.
+
+`governance validate` also prints planned-work counts; these are design
+backlog, not coverage. Add `--strict-planned` to apply the active section and
+per-requirement Security/Acceptance checks to `Planned/` documents (planned
+documents still carry no evidence or traceability).
+
+The managed `.editorconfig` must not be edited. Consumers tighten severities
+in their own files: a `.globalconfig` (`is_global = true`) or a nested
+`.editorconfig` in a subdirectory (nested files override parent settings),
+plus project properties such as `TreatWarningsAsErrors`.
 
 Run the end-to-end synthetic local package consumer from this repository:
 
@@ -123,7 +145,9 @@ consumer framework is validated by this end-to-end check. For the current
 repository workflow use the pinned .NET 10 SDK `10.0.404`. Add
 `Mauve.Governance.Testing.Analyzers` and the framework adapter to the test
 project; add `Mauve.Governance.Logging.Analyzers` where logging analysis is
-wanted. The `.editorconfig` only configures diagnostics: the consumer must
+wanted. No consumer framework other than `net10.0` is verified; a `net11.0`
+test project and SDK 11 are unverified, so run the Tool from a Governance
+checkout with its own SDK. The `.editorconfig` only configures diagnostics: the consumer must
 require its own project build to enforce them.
 
 The package-reference pattern used by the local MSTest consumer is:
@@ -131,10 +155,10 @@ The package-reference pattern used by the local MSTest consumer is:
 ```xml
 <ItemGroup>
   <PackageReference Include="MSTest" Version="4.5.1" />
-  <PackageReference Include="Mauve.Governance.Testing.MSTest" Version="0.13.0" />
-  <PackageReference Include="Mauve.Governance.Testing.Analyzers" Version="0.13.0" />
-  <PackageReference Include="Mauve.Governance.Logging.Analyzers" Version="0.13.0" />
-  <PackageReference Include="Mauve.Governance.Testing.TrxLogger" Version="0.13.0" />
+  <PackageReference Include="Mauve.Governance.Testing.MSTest" Version="0.14.0" />
+  <PackageReference Include="Mauve.Governance.Testing.Analyzers" Version="0.14.0" />
+  <PackageReference Include="Mauve.Governance.Logging.Analyzers" Version="0.14.0" />
+  <PackageReference Include="Mauve.Governance.Testing.TrxLogger" Version="0.14.0" />
 </ItemGroup>
 ```
 
@@ -172,7 +196,7 @@ permissions and a hosted update run have been verified.
 ## Existing Governance installation
 
 Use a trusted newer tool to run `governance update --root <repository>
---check`, then `--apply` in a review branch. The known 0.2.0-0.12.0
+--check`, then `--apply` in a review branch. The known 0.2.0-0.13.0
 ownership manifests migrate to the current bundle; edited *owned* files
 are replaced in the proposed diff, while any file absent from the old
 manifest remains outside Governance ownership. An unknown schema, an

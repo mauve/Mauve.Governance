@@ -78,6 +78,8 @@ source to enrich results, and imports fail closed when Feature is absent.
 
 ## Metrics Impact
 
+**Instruments:** none - no runtime instruments are added.
+
 No runtime instruments are added; the generator reports declared test
 and feature counts only.
 

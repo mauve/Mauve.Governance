@@ -67,12 +67,14 @@ Security lines and missing planned status.
 
 ## Metrics Impact
 
+**Instruments:** none - no runtime instruments are added.
+
 No runtime instruments are added. The tool emits bounded validation counts,
 not runtime telemetry.
 
 ## Verification
 
-`RepositorySetupTests` checks managed ownership, 0.12.0-to-0.13.0 and earlier
+`RepositorySetupTests` checks managed ownership, 0.13.0-to-0.14.0 and earlier
 migration, and the `core-requirements` profile's required consumer-owned
 lifecycle directory. `Mauve.Governance.Requirements` tests exercise real
 Markdown blocks, bounded reading and NativeAOT publication. Packaged tools

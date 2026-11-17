@@ -1,10 +1,10 @@
 {
   "SchemaVersion": 2,
-  "BundleVersion": "0.13.0",
+  "BundleVersion": "0.14.0",
   "Files": [
     {
       "Path": ".config/dotnet-tools.json",
-      "Sha256": "547CC8FEA7B671DB78F40DE77567ACEA43E2BDAE60A17A7E14566E42DC82D631"
+      "Sha256": "E6C400EECAD06D742DFD65E36DF4F57857FFCD3007F2680A89B6B0B9DDF22A99"
     },
     {
       "Path": ".editorconfig",
@@ -40,7 +40,7 @@
     },
     {
       "Path": "AGENTS.md",
-      "Sha256": "0248BE1998E8C93FCBC319EBB5B64BFEBB6020770F03E04CF26AAADC385B2AEE"
+      "Sha256": "A1DD828DBFB1348678DE9DDF955BEBD9C888C566EC47DE9A6625F837BB9F9407"
     },
     {
       "Path": "docs/Policies/README.md",

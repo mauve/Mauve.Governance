@@ -43,6 +43,8 @@ MUST NOT be inferred from analyzer success.
 
 ## Metrics Impact
 
+**Instruments:** none - no runtime instruments are added.
+
 The analyzer adds compile-time diagnostics, not runtime counters.
 
 ## Verification

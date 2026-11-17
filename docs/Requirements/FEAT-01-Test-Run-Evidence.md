@@ -63,6 +63,8 @@ being inferred from a test name or source annotation.
 
 ## Metrics Impact
 
+**Instruments:** none - no runtime instruments are added.
+
 No runtime metrics are introduced. The tool emits bounded report counts,
 not telemetry; no user-controlled test output becomes a metric dimension.
 
